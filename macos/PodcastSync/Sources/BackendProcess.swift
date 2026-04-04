@@ -41,7 +41,7 @@ class BackendProcess: ObservableObject {
         if FileManager.default.fileExists(atPath: backendPath) {
             // Bundled PyInstaller binary
             proc.executableURL = URL(fileURLWithPath: backendPath)
-        } else if let uvicorn = uvicornPath {
+        } else if let uvicorn = uvicornPath, let projectRoot = findProjectRoot() {
             // Development mode: run uvicorn directly
             proc.executableURL = URL(fileURLWithPath: uvicorn)
             proc.arguments = [
@@ -49,12 +49,6 @@ class BackendProcess: ObservableObject {
                 "--host", "0.0.0.0",
                 "--port", String(port),
             ]
-            // Set working directory to project root (two levels up from macos/PodcastSync/)
-            let projectRoot = URL(fileURLWithPath: #filePath)
-                .deletingLastPathComponent()  // Sources/
-                .deletingLastPathComponent()  // PodcastSync/
-                .deletingLastPathComponent()  // macos/
-                .deletingLastPathComponent()  // project root
             proc.currentDirectoryURL = projectRoot
             var env = ProcessInfo.processInfo.environment
             env["PYTHONPATH"] = projectRoot.path
@@ -162,20 +156,36 @@ class BackendProcess: ObservableObject {
 
     // MARK: - Helpers
 
+    private func findProjectRoot() -> URL? {
+        // 1. Explicit env var
+        if let envRoot = ProcessInfo.processInfo.environment["PODCASTSYNC_PROJECT_ROOT"] {
+            let url = URL(fileURLWithPath: envRoot)
+            if FileManager.default.fileExists(atPath: url.appendingPathComponent("backend/main.py").path) {
+                return url
+            }
+        }
+        // 2. Walk up from the running executable looking for backend/main.py
+        var dir = URL(fileURLWithPath: ProcessInfo.processInfo.arguments[0])
+            .deletingLastPathComponent()
+        for _ in 0..<8 {
+            if FileManager.default.fileExists(atPath: dir.appendingPathComponent("backend/main.py").path) {
+                return dir
+            }
+            dir = dir.deletingLastPathComponent()
+        }
+        return nil
+    }
+
     private func findUvicorn() -> String? {
-        // Check common locations
-        let candidates = [
-            // Virtual env relative to project root
-            URL(fileURLWithPath: #filePath)
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .appendingPathComponent("venv/bin/uvicorn").path,
-            "/usr/local/bin/uvicorn",
-            "/opt/homebrew/bin/uvicorn",
-        ]
-        for path in candidates {
+        // Check virtual env relative to project root first, then system locations
+        if let root = findProjectRoot() {
+            let venvPath = root.appendingPathComponent("venv/bin/uvicorn").path
+            if FileManager.default.isExecutableFile(atPath: venvPath) {
+                return venvPath
+            }
+        }
+        let systemPaths = ["/usr/local/bin/uvicorn", "/opt/homebrew/bin/uvicorn"]
+        for path in systemPaths {
             if FileManager.default.isExecutableFile(atPath: path) {
                 return path
             }
