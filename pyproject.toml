@@ -1,0 +1,18 @@
+[project]
+name = "podcastsync"
+version = "0.1.0"
+description = "Turn YouTube channels and playlists into self-hosted podcast feeds"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "google-api-python-client>=2.100.0",
+    "feedparser>=6.0.10",
+    "yt-dlp>=2024.01.01",
+    "feedgen>=1.0.0",
+    "apscheduler>=3.10.0,<4.0.0",
+    "pydantic>=2.5.0",
+]
+
+[project.scripts]
+podcastsync = "backend.main:run"

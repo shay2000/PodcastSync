@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PodcastSync</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <header>
+        <h1>PodcastSync</h1>
+        <div id="status-bar">
+            <span id="server-status" class="status-dot green"></span>
+            <span id="status-text">Connected</span>
+            <span id="next-poll"></span>
+        </div>
+    </header>
+
+    <main>
+        <!-- Add Source -->
+        <section id="add-source" class="card">
+            <h2>Add Source</h2>
+            <form id="add-source-form">
+                <div class="form-row">
+                    <input type="text" id="source-url" placeholder="YouTube channel or playlist URL" required>
+                    <input type="text" id="source-name" placeholder="Name (optional)">
+                    <input type="number" id="source-backfill" value="15" min="1" max="500" title="Max past episodes">
+                    <button type="submit">Add</button>
+                </div>
+                <div id="add-error" class="error" hidden></div>
+            </form>
+        </section>
+
+        <!-- Sources List -->
+        <section id="sources-section">
+            <div class="section-header">
+                <h2>Sources</h2>
+                <button id="sync-all-btn" class="btn-secondary">Sync All</button>
+            </div>
+            <div id="sources-list"></div>
+            <div id="no-sources" class="empty-state" hidden>
+                <p>No sources added yet. Add a YouTube channel or playlist above to get started.</p>
+            </div>
+        </section>
+
+        <!-- Settings -->
+        <section id="settings-section" class="card">
+            <h2>Settings</h2>
+            <div class="form-row">
+                <label for="api-key">YouTube API Key:</label>
+                <input type="password" id="api-key" placeholder="Enter API key">
+                <button id="save-api-key" class="btn-secondary">Save</button>
+            </div>
+            <div class="form-row">
+                <label for="poll-interval">Poll interval (minutes):</label>
+                <input type="number" id="poll-interval" min="1" max="1440" value="30">
+                <button id="save-poll-interval" class="btn-secondary">Save</button>
+            </div>
+            <div id="settings-info" class="info-text"></div>
+        </section>
+    </main>
+
+    <script src="/app.js"></script>
+</body>
+</html>

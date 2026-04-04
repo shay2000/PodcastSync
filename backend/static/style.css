@@ -1,0 +1,259 @@
+:root {
+    --bg: #f5f5f7;
+    --card-bg: #ffffff;
+    --text: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --accent: #0071e3;
+    --accent-hover: #0077ed;
+    --success: #30d158;
+    --error: #ff453a;
+    --warning: #ffd60a;
+    --border: #d2d2d7;
+    --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #1c1c1e;
+        --card-bg: #2c2c2e;
+        --text: #f5f5f7;
+        --text-secondary: #98989d;
+        --border: #48484a;
+    }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+header h1 { font-size: 24px; font-weight: 600; }
+
+#status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.status-dot.green { background: var(--success); }
+.status-dot.red { background: var(--error); }
+.status-dot.yellow { background: var(--warning); }
+
+.card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+}
+
+h2 { font-size: 17px; font-weight: 600; margin-bottom: 12px; }
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.form-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="number"] {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text);
+}
+
+#source-url { flex: 2; min-width: 250px; }
+#source-name { flex: 1; min-width: 120px; }
+#source-backfill { width: 70px; }
+
+button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    background: var(--accent);
+    color: white;
+    transition: background 0.2s;
+}
+button:hover { background: var(--accent-hover); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+.btn-secondary:hover { background: var(--accent); color: white; }
+
+.btn-danger {
+    background: transparent;
+    color: var(--error);
+    border: 1px solid var(--error);
+    font-size: 12px;
+    padding: 4px 10px;
+}
+.btn-danger:hover { background: var(--error); color: white; }
+
+.error { color: var(--error); font-size: 13px; margin-top: 4px; }
+.info-text { color: var(--text-secondary); font-size: 13px; margin-top: 8px; }
+.empty-state { text-align: center; color: var(--text-secondary); padding: 40px 20px; }
+
+/* Source cards */
+.source-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.source-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.source-name {
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.source-meta {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.source-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.feed-url {
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 12px;
+    background: var(--bg);
+    padding: 4px 8px;
+    border-radius: 4px;
+    word-break: break-all;
+    max-width: 400px;
+}
+
+.badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+.badge.channel { background: #e3f2fd; color: #1565c0; }
+.badge.playlist { background: #f3e5f5; color: #7b1fa2; }
+
+@media (prefers-color-scheme: dark) {
+    .badge.channel { background: #1a3a5c; color: #90caf9; }
+    .badge.playlist { background: #3a1a4c; color: #ce93d8; }
+}
+
+/* Video list */
+.videos-toggle {
+    font-size: 13px;
+    color: var(--accent);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    font-weight: 500;
+}
+
+.video-list {
+    margin-top: 8px;
+    font-size: 13px;
+}
+
+.video-item {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.video-item:last-child { border-bottom: none; }
+
+.video-status {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+.video-status.completed { background: #e8f5e9; color: #2e7d32; }
+.video-status.pending { background: #fff3e0; color: #e65100; }
+.video-status.downloading { background: #e3f2fd; color: #1565c0; }
+.video-status.failed { background: #ffebee; color: #c62828; }
+
+@media (prefers-color-scheme: dark) {
+    .video-status.completed { background: #1b3a1b; color: #66bb6a; }
+    .video-status.pending { background: #3a2a10; color: #ffb74d; }
+    .video-status.downloading { background: #1a3a5c; color: #90caf9; }
+    .video-status.failed { background: #3a1a1a; color: #ef9a9a; }
+}
+
+label {
+    font-size: 14px;
+    min-width: 160px;
+}
+
+.toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: white;
+    z-index: 1000;
+    animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+}
+.toast.success { background: var(--success); }
+.toast.error { background: var(--error); }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
