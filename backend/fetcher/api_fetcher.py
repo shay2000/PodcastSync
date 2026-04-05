@@ -6,9 +6,6 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-
 from backend.fetcher.base import QuotaExceededError, VideoInfo, YouTubeSourceFetcher
 
 logger = logging.getLogger(__name__)
@@ -28,11 +25,16 @@ def _parse_iso8601_duration(duration: str) -> int:
 
 class YouTubeApiFetcher(YouTubeSourceFetcher):
     def __init__(self, api_key: str) -> None:
+        from googleapiclient.discovery import build  # Lazy import — google client is slow
+
         self.api_key = api_key
         self._service = build("youtube", "v3", developerKey=api_key)
         self._uploads_cache: dict[str, str] = {}  # channel_id -> uploads_playlist_id
 
-    def _handle_http_error(self, e: HttpError) -> None:
+    def _handle_http_error(self, e) -> None:
+        from googleapiclient.errors import HttpError  # Lazy import
+        if not isinstance(e, HttpError):
+            raise
         if e.resp.status == 403:
             error_reason = ""
             if e.error_details:
@@ -71,9 +73,9 @@ class YouTubeApiFetcher(YouTubeSourceFetcher):
                 raise ValueError(f"No channel found for {id_type}: {identifier}")
             return items[0]["id"]
 
-        except HttpError as e:
+        except Exception as e:
             self._handle_http_error(e)
-            raise  # unreachable, but makes type checker happy
+            raise
 
     async def get_uploads_playlist_id(self, channel_id: str) -> str:
         """Get the uploads playlist ID via the API, with caching."""
@@ -92,7 +94,7 @@ class YouTubeApiFetcher(YouTubeSourceFetcher):
             self._uploads_cache[channel_id] = playlist_id
             return playlist_id
 
-        except HttpError as e:
+        except Exception as e:
             self._handle_http_error(e)
             raise
 
@@ -179,7 +181,7 @@ class YouTubeApiFetcher(YouTubeSourceFetcher):
                 if not page_token:
                     break
 
-        except HttpError as e:
+        except Exception as e:
             self._handle_http_error(e)
 
         logger.info("API fetched %d videos for %s %s", len(videos), source_type, youtube_id)

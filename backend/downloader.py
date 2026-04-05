@@ -10,8 +10,6 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
-import yt_dlp
-
 from backend.database import DatabaseManager
 from backend.fetcher.base import VideoInfo
 from backend.fetcher.orchestrator import FetcherOrchestrator
@@ -146,6 +144,8 @@ class DownloadManager:
 
     def _sync_download(self, url: str, opts: dict) -> None:
         """Synchronous yt-dlp download (called via run_in_executor)."""
+        import yt_dlp  # Lazy import — yt-dlp takes ~60s to load
+
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
 

@@ -97,8 +97,12 @@ def run():
     import uvicorn
     settings = Settings.from_env()
     uvicorn.run(
-        "backend.main:app",
+        app,
         host="0.0.0.0",
         port=settings.server_port,
         log_level="info",
     )
+
+
+if __name__ == "__main__":
+    run()

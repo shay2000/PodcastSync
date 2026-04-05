@@ -5,9 +5,6 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime, timezone
 
-from feedgen.feed import FeedGenerator
-
-
 def generate_feed(
     source: sqlite3.Row,
     videos: list[sqlite3.Row],
@@ -23,6 +20,8 @@ def generate_feed(
     Returns:
         RSS XML string.
     """
+    from feedgen.feed import FeedGenerator  # Lazy import — lxml is slow to load
+
     fg = FeedGenerator()
     fg.load_extension("podcast")
 

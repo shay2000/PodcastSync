@@ -6,7 +6,6 @@ import logging
 from typing import Optional
 
 from backend.fetcher.base import QuotaExceededError, VideoInfo, YouTubeSourceFetcher
-from backend.fetcher.api_fetcher import YouTubeApiFetcher
 from backend.fetcher.rss_fetcher import YouTubeRssFetcher
 
 logger = logging.getLogger(__name__)
@@ -14,10 +13,11 @@ logger = logging.getLogger(__name__)
 
 class FetcherOrchestrator:
     def __init__(self, api_key: str = "") -> None:
-        self.api_fetcher: Optional[YouTubeApiFetcher] = None
+        self.api_fetcher: Optional[YouTubeSourceFetcher] = None
         self.rss_fetcher = YouTubeRssFetcher()
 
         if api_key:
+            from backend.fetcher.api_fetcher import YouTubeApiFetcher  # Lazy — google client is heavy
             self.api_fetcher = YouTubeApiFetcher(api_key)
             logger.info("Orchestrator initialized with API + RSS fetchers")
         else:
