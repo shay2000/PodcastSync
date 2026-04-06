@@ -98,6 +98,24 @@ class YouTubeApiFetcher(YouTubeSourceFetcher):
             self._handle_http_error(e)
             raise
 
+    async def get_channel_icon_url(self, channel_id: str) -> Optional[str]:
+        """Return the highest-resolution channel avatar URL, or None on failure."""
+        try:
+            resp = self._service.channels().list(
+                part="snippet", id=channel_id
+            ).execute()
+            items = resp.get("items", [])
+            if not items:
+                return None
+            thumbs = items[0].get("snippet", {}).get("thumbnails", {})
+            for quality in ("high", "medium", "default"):
+                url = thumbs.get(quality, {}).get("url")
+                if url:
+                    return url
+        except Exception:
+            logger.warning("Could not fetch channel icon for %s", channel_id)
+        return None
+
     async def fetch_videos(
         self,
         source_type: str,

@@ -111,11 +111,14 @@ class DatabaseManager:
         url: str,
         max_backfill: int = 15,
         uploads_playlist_id: str | None = None,
+        custom_storage_path: str | None = None,
+        icon_url: str | None = None,
     ) -> int:
         cur = self.execute(
-            """INSERT INTO sources (name, source_type, youtube_id, url, max_backfill, uploads_playlist_id)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (name, source_type, youtube_id, url, max_backfill, uploads_playlist_id),
+            """INSERT INTO sources
+               (name, source_type, youtube_id, url, max_backfill, uploads_playlist_id, custom_storage_path, icon_url)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (name, source_type, youtube_id, url, max_backfill, uploads_playlist_id, custom_storage_path, icon_url),
         )
         return cur.lastrowid  # type: ignore[return-value]
 
@@ -184,6 +187,23 @@ class DatabaseManager:
         extra = "".join(f", {k} = ?" for k in fields)
         vals = [status] + list(fields.values()) + [video_id]
         self.execute(f"UPDATE videos SET download_status = ?{extra} WHERE id = ?", tuple(vals))
+
+    def skip_video(self, video_db_id: int) -> None:
+        """Mark a video as skipped so it is never downloaded."""
+        self.execute(
+            "UPDATE videos SET download_status = 'skipped' WHERE id = ?",
+            (video_db_id,),
+        )
+
+    def delete_downloaded_file(self, video_db_id: int) -> Optional[str]:
+        """Return the file_path then reset the video to pending (re-downloadable)."""
+        row = self.fetch_one("SELECT file_path FROM videos WHERE id = ?", (video_db_id,))
+        file_path = row["file_path"] if row else None
+        self.execute(
+            "UPDATE videos SET download_status = 'pending', file_path = NULL, file_size = NULL WHERE id = ?",
+            (video_db_id,),
+        )
+        return file_path
 
     def get_known_video_ids(self, source_id: int) -> set[str]:
         rows = self.fetch_all("SELECT video_id FROM videos WHERE source_id = ?", (source_id,))

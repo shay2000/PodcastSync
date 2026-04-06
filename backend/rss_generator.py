@@ -42,12 +42,11 @@ def generate_feed(
     fg.podcast.itunes_summary(f"Audio from {source_name} YouTube {source['source_type']}")
     fg.podcast.itunes_explicit("no")
 
-    # Use first video's thumbnail as feed image if available
-    if videos:
-        thumb = videos[0]["thumbnail_url"]
-        if thumb:
-            fg.image(url=thumb, title=source_name)
-            fg.podcast.itunes_image(thumb)
+    # Prefer channel icon as feed image; fall back to first video thumbnail
+    icon = source["icon_url"] or (videos[0]["thumbnail_url"] if videos else None)
+    if icon:
+        fg.image(url=icon, title=source_name)
+        fg.podcast.itunes_image(icon)
 
     for row in videos:
         fe = fg.add_entry()

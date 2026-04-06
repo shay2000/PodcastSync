@@ -52,6 +52,12 @@ class FetcherOrchestrator:
             return await self.api_fetcher.get_uploads_playlist_id(channel_id)
         return await self.rss_fetcher.get_uploads_playlist_id(channel_id)
 
+    async def fetch_channel_icon(self, channel_id: str) -> Optional[str]:
+        """Return the channel avatar URL if an API key is configured, else None."""
+        if self.api_fetcher:
+            return await self.api_fetcher.get_channel_icon_url(channel_id)
+        return None
+
     async def fetch_videos(
         self,
         source_type: str,

@@ -52,11 +52,37 @@ let expandedSourceId = null;
 
 async function loadSources() {
     try {
-        sources = await api('GET', '/api/sources');
-        renderSources();
+        const newSources = await api('GET', '/api/sources');
+        // Full re-render only when the source list size changes or on first load
+        if (newSources.length !== sources.length) {
+            sources = newSources;
+            renderSources();
+        } else {
+            refreshSourceMeta(newSources);
+        }
     } catch (e) {
         console.error('Failed to load sources:', e);
     }
+}
+
+/** Targeted in-place update of counter + last-polled text. No DOM wipe. */
+function refreshSourceMeta(newSources) {
+    for (const s of newSources) {
+        const card = document.querySelector(`.source-card[data-id="${s.id}"]`);
+        if (!card) {
+            // A card is missing — fall back to full render
+            sources = newSources;
+            renderSources();
+            return;
+        }
+        const meta = card.querySelector('.source-meta');
+        if (meta) {
+            meta.innerHTML =
+                `${s.completed_count}/${s.video_count} episodes downloaded` +
+                ` &middot; Last polled: ${timeAgo(s.last_polled_at)}`;
+        }
+    }
+    sources = newSources;
 }
 
 function renderSources() {
@@ -74,6 +100,7 @@ function renderSources() {
         <div class="source-card" data-id="${s.id}">
             <div class="source-header">
                 <span>
+                    ${s.icon_url ? `<img src="${s.icon_url}" class="source-icon" alt="">` : ''}
                     <span class="source-name">${esc(s.name)}</span>
                     <span class="badge ${s.source_type}">${s.source_type}</span>
                 </span>
@@ -84,6 +111,14 @@ function renderSources() {
             <div class="source-meta">
                 ${s.completed_count}/${s.video_count} episodes downloaded
                 &middot; Last polled: ${timeAgo(s.last_polled_at)}
+            </div>
+            <div class="source-path-row">
+                <span class="path-label">Download to:</span>
+                <input type="text" class="path-input" id="path-${s.id}"
+                    value="${esc(s.custom_storage_path || '')}"
+                    placeholder="Default (~/PodcastMirror/${esc(s.name)}/)">
+                <button onclick="browseDirectory('path-${s.id}')" class="btn-secondary btn-sm">Browse…</button>
+                <button onclick="savePath(${s.id})" class="btn-secondary btn-sm">Save path</button>
             </div>
             <div class="source-actions">
                 <button onclick="syncSource(${s.id})" class="btn-secondary" style="font-size:12px;padding:4px 10px">Sync Now</button>
@@ -118,12 +153,24 @@ async function loadVideos(sourceId) {
             return;
         }
 
-        container.innerHTML = videos.map(v => `
-            <div class="video-item">
-                <span>${esc(v.title)} <span class="info-text">${v.publish_date ? v.publish_date.slice(0, 10) : ''}</span></span>
-                <span class="video-status ${v.download_status}">${v.download_status}</span>
-            </div>
-        `).join('');
+        container.innerHTML = videos.map(v => {
+            const sizeMB = v.file_size ? `<span class="info-text">${(v.file_size / 1048576).toFixed(1)} MB</span>` : '';
+            const skipBtn = (v.download_status !== 'completed' && v.download_status !== 'skipped')
+                ? `<button onclick="skipVideo(${sourceId}, ${v.id})" class="btn-skip" title="Skip this video">Skip</button>`
+                : '';
+            const deleteBtn = v.download_status === 'completed'
+                ? `<button onclick="deleteVideoFile(${sourceId}, ${v.id})" class="btn-delete-file" title="Delete downloaded file">Delete file</button>`
+                : '';
+            return `
+            <div class="video-item" id="video-item-${v.id}">
+                <span class="video-title">${esc(v.title)} <span class="info-text">${v.publish_date ? v.publish_date.slice(0, 10) : ''}</span></span>
+                <span class="video-right">
+                    ${sizeMB}
+                    <span class="video-status ${v.download_status}">${v.download_status}</span>
+                    ${skipBtn}${deleteBtn}
+                </span>
+            </div>`;
+        }).join('');
     } catch (e) {
         console.error('Failed to load videos:', e);
     }
@@ -141,12 +188,15 @@ document.getElementById('add-source-form').addEventListener('submit', async (e) 
     const url = document.getElementById('source-url').value.trim();
     const name = document.getElementById('source-name').value.trim();
     const maxBackfill = parseInt(document.getElementById('source-backfill').value, 10);
+    const customPath = document.getElementById('source-path').value.trim() || null;
 
     try {
-        await api('POST', '/api/sources', { url, name, max_backfill: maxBackfill });
+        await api('POST', '/api/sources', { url, name, max_backfill: maxBackfill, custom_storage_path: customPath });
         document.getElementById('source-url').value = '';
         document.getElementById('source-name').value = '';
+        document.getElementById('source-path').value = '';
         toast('Source added');
+        sources = [];  // Force full re-render on next load
         loadSources();
     } catch (e) {
         errEl.textContent = e.message;
@@ -154,11 +204,27 @@ document.getElementById('add-source-form').addEventListener('submit', async (e) 
     }
 });
 
+document.getElementById('browse-source-path').addEventListener('click', () => {
+    browseDirectory('source-path');
+});
+
+async function browseDirectory(inputId) {
+    try {
+        const result = await api('POST', '/api/pick-directory');
+        if (result.path) {
+            document.getElementById(inputId).value = result.path;
+        }
+    } catch (e) {
+        toast('Could not open folder picker', 'error');
+    }
+}
+
 async function syncSource(id) {
     try {
         toast('Syncing...');
         const result = await api('POST', `/api/sources/${id}/sync`);
         toast(`Found ${result.new_videos} new, downloaded ${result.downloaded}`);
+        sources = [];  // Force full re-render
         loadSources();
     } catch (e) {
         toast(e.message, 'error');
@@ -170,6 +236,7 @@ document.getElementById('sync-all-btn').addEventListener('click', async () => {
         toast('Syncing all sources...');
         const result = await api('POST', '/api/sync-all');
         toast(`Synced ${result.sources_synced} sources: ${result.new_videos} new, ${result.downloaded} downloaded`);
+        sources = [];
         loadSources();
     } catch (e) {
         toast(e.message, 'error');
@@ -197,6 +264,7 @@ async function toggleEnabled(id, enabled) {
         await api('PATCH', `/api/sources/${id}`, { enabled });
     } catch (e) {
         toast(e.message, 'error');
+        sources = [];
         loadSources();
     }
 }
@@ -206,12 +274,51 @@ function toggleVideos(id) {
     renderSources();
 }
 
+async function savePath(id) {
+    const path = document.getElementById(`path-${id}`).value.trim();
+    try {
+        await api('PATCH', `/api/sources/${id}`, { custom_storage_path: path || null });
+        toast('Download path saved');
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function skipVideo(sourceId, videoId) {
+    try {
+        await api('DELETE', `/api/sources/${sourceId}/videos/${videoId}`);
+        const el = document.getElementById(`video-item-${videoId}`);
+        if (el) {
+            el.querySelector('.video-status').className = 'video-status skipped';
+            el.querySelector('.video-status').textContent = 'skipped';
+            const skipBtn = el.querySelector('.btn-skip');
+            if (skipBtn) skipBtn.remove();
+        }
+        refreshSourceMeta(sources);
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function deleteVideoFile(sourceId, videoId) {
+    if (!confirm('Delete the downloaded MP3? It will re-queue for download.')) return;
+    try {
+        await api('DELETE', `/api/sources/${sourceId}/videos/${videoId}/file`);
+        loadVideos(sourceId);
+        sources = [];
+        loadSources();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
 async function deleteSource(id) {
     if (!confirm('Delete this source and all its videos?')) return;
     try {
         await api('DELETE', `/api/sources/${id}`);
         toast('Source deleted');
         if (expandedSourceId === id) expandedSourceId = null;
+        sources = [];
         loadSources();
     } catch (e) {
         toast(e.message, 'error');
@@ -285,7 +392,7 @@ function startPolling() {
     pollTimer = setInterval(() => {
         if (!document.hidden) {
             loadStatus();
-            loadSources();
+            loadSources();  // Uses refreshSourceMeta when count is unchanged — no flicker
         }
     }, 5000);
 }

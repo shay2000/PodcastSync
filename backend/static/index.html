@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PodcastSync</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/style.css?v=2">
 </head>
 <body>
     <header>
@@ -26,6 +26,10 @@
                     <input type="text" id="source-name" placeholder="Name (optional)">
                     <input type="number" id="source-backfill" value="15" min="1" max="500" title="Max past episodes">
                     <button type="submit">Add</button>
+                </div>
+                <div class="form-row">
+                    <input type="text" id="source-path" placeholder="Download folder (optional, default: ~/PodcastMirror/Name/)">
+                    <button type="button" id="browse-source-path" class="btn-secondary btn-sm">Browse…</button>
                 </div>
                 <div id="add-error" class="error" hidden></div>
             </form>
@@ -60,6 +64,6 @@
         </section>
     </main>
 
-    <script src="/app.js"></script>
+    <script src="/app.js?v=2"></script>
 </body>
 </html>

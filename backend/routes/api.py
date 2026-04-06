@@ -77,6 +77,14 @@ async def add_source(body: SourceCreate, request: Request) -> dict:
         except Exception:
             pass  # Non-critical, will be fetched on first sync
 
+    # Fetch channel icon (only available when API key is set)
+    icon_url = None
+    if source_type == "channel":
+        try:
+            icon_url = await orchestrator.fetch_channel_icon(youtube_id)
+        except Exception:
+            pass  # Non-critical
+
     source_id = db.add_source(
         name=name,
         source_type=source_type,
@@ -84,6 +92,8 @@ async def add_source(body: SourceCreate, request: Request) -> dict:
         url=body.url,
         max_backfill=body.max_backfill,
         uploads_playlist_id=uploads_playlist_id,
+        custom_storage_path=body.custom_storage_path or None,
+        icon_url=icon_url,
     )
 
     source = db.get_source(source_id)
@@ -150,6 +160,30 @@ async def list_videos(source_id: int, request: Request) -> list[dict]:
         raise HTTPException(status_code=404, detail="Source not found")
     rows = db.get_videos_for_source(source_id)
     return [dict(r) for r in rows]
+
+
+@router.delete("/sources/{source_id}/videos/{video_db_id}", status_code=204)
+async def skip_video(source_id: int, video_db_id: int, request: Request) -> None:
+    """Mark a video as skipped so it won't be downloaded."""
+    db = request.app.state.db
+    if not db.get_source(source_id):
+        raise HTTPException(status_code=404, detail="Source not found")
+    db.skip_video(video_db_id)
+
+
+@router.delete("/sources/{source_id}/videos/{video_db_id}/file", status_code=204)
+async def delete_video_file(source_id: int, video_db_id: int, request: Request) -> None:
+    """Delete the downloaded MP3 from disk and reset the video status to pending."""
+    import os
+    db = request.app.state.db
+    if not db.get_source(source_id):
+        raise HTTPException(status_code=404, detail="Source not found")
+    file_path = db.delete_downloaded_file(video_db_id)
+    if file_path:
+        try:
+            os.remove(file_path)
+        except FileNotFoundError:
+            pass  # File already gone — that's fine
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +272,22 @@ async def get_settings(request: Request) -> dict:
         "server_port": settings.server_port,
         "base_url": settings.base_url,
     }
+
+
+@router.post("/pick-directory")
+async def pick_directory() -> dict:
+    """Open a native macOS folder picker and return the selected path."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["osascript", "-e",
+             'POSIX path of (choose folder with prompt "Select download folder")'],
+            capture_output=True, text=True, timeout=60,
+        )
+        path = result.stdout.strip() if result.returncode == 0 else None
+    except Exception:
+        path = None
+    return {"path": path}
 
 
 @router.patch("/settings", response_model=SettingsResponse)

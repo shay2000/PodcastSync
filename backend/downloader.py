@@ -77,9 +77,7 @@ class DownloadManager:
                     "preferredquality": "192",
                 },
                 {"key": "FFmpegMetadata"},
-                {"key": "EmbedThumbnail"},
             ],
-            "writethumbnail": True,
             "quiet": True,
             "no_warnings": True,
             "noplaylist": True,
@@ -88,10 +86,50 @@ class DownloadManager:
             opts["ffmpeg_location"] = os.path.dirname(self.ffmpeg_path)
         return opts
 
-    async def download_video(self, video_db_id: int, video_id: str, source_name: str) -> Optional[Path]:
+    def _get_output_dir(self, source_name: str, custom_storage_path: Optional[str]) -> Path:
+        if custom_storage_path:
+            return Path(custom_storage_path)
+        return self.storage_path / sanitize_filename(source_name)
+
+    def _embed_channel_icon(self, mp3_path: Path, icon_url: str, cache_dir: Path) -> None:
+        """Download the channel icon once and embed it as album art in the MP3."""
+        import urllib.request
+        from mutagen.id3 import ID3, APIC, error as ID3Error
+
+        icon_path = cache_dir / "channel_icon.jpg"
+        if not icon_path.exists():
+            try:
+                urllib.request.urlretrieve(icon_url, str(icon_path))
+            except Exception as e:
+                logger.warning("Could not download channel icon: %s", e)
+                return
+
+        try:
+            tags = ID3(str(mp3_path))
+        except ID3Error:
+            from mutagen.id3 import ID3NoHeaderError
+            tags = ID3()
+
+        tags.delall("APIC")
+        tags.add(APIC(
+            encoding=3,       # UTF-8
+            mime="image/jpeg",
+            type=3,           # Cover (front)
+            desc="Cover",
+            data=icon_path.read_bytes(),
+        ))
+        tags.save(str(mp3_path))
+
+    async def download_video(
+        self,
+        video_db_id: int,
+        video_id: str,
+        source_name: str,
+        custom_storage_path: Optional[str] = None,
+        icon_url: Optional[str] = None,
+    ) -> Optional[Path]:
         """Download a single video's audio as MP3. Returns the file path on success."""
-        safe_name = sanitize_filename(source_name)
-        output_dir = self.storage_path / safe_name
+        output_dir = self._get_output_dir(source_name, custom_storage_path)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         expected_path = output_dir / f"{video_id}.mp3"
@@ -118,6 +156,13 @@ class DownloadManager:
             await loop.run_in_executor(None, self._sync_download, url, opts)
 
             if expected_path.exists():
+                # Embed channel icon as album art (instead of per-video thumbnail)
+                if icon_url:
+                    try:
+                        self._embed_channel_icon(expected_path, icon_url, output_dir)
+                    except Exception as e:
+                        logger.warning("Failed to embed channel icon: %s", e)
+
                 file_size = expected_path.stat().st_size
                 self.db.update_video_status(
                     video_db_id, "completed",
@@ -149,7 +194,13 @@ class DownloadManager:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
 
-    async def process_pending_downloads(self, source_id: int, source_name: str) -> int:
+    async def process_pending_downloads(
+        self,
+        source_id: int,
+        source_name: str,
+        custom_storage_path: Optional[str] = None,
+        icon_url: Optional[str] = None,
+    ) -> int:
         """Download all pending videos for a source. Returns count of successful downloads."""
         pending = self.db.get_pending_videos(source_id)
         if not pending:
@@ -161,7 +212,11 @@ class DownloadManager:
         async def _download_one(row):
             nonlocal completed
             async with self._semaphore:
-                result = await self.download_video(row["id"], row["video_id"], source_name)
+                result = await self.download_video(
+                    row["id"], row["video_id"], source_name,
+                    custom_storage_path=custom_storage_path,
+                    icon_url=icon_url,
+                )
                 if result:
                     completed += 1
 
@@ -223,6 +278,10 @@ async def sync_source(
     logger.info("Found %d new videos for source %d", new_count, source_id)
 
     # Download pending videos
-    downloaded = await download_manager.process_pending_downloads(source_id, source_name)
+    downloaded = await download_manager.process_pending_downloads(
+        source_id, source_name,
+        custom_storage_path=source["custom_storage_path"],
+        icon_url=source["icon_url"],
+    )
 
     return new_count, downloaded
