@@ -1,495 +1,1026 @@
 // PodcastSync Web UI
 
-const API = '';  // same origin
+const API = "";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const SOURCE_PALETTES = [
+    { accent: "#244983", soft: "rgba(36, 73, 131, 0.15)", glow: "rgba(36, 73, 131, 0.24)" },
+    { accent: "#c76346", soft: "rgba(199, 99, 70, 0.16)", glow: "rgba(199, 99, 70, 0.24)" },
+    { accent: "#1d8d86", soft: "rgba(29, 141, 134, 0.15)", glow: "rgba(29, 141, 134, 0.24)" },
+    { accent: "#8c5bb6", soft: "rgba(140, 91, 182, 0.16)", glow: "rgba(140, 91, 182, 0.24)" },
+    { accent: "#d58c2d", soft: "rgba(213, 140, 45, 0.16)", glow: "rgba(213, 140, 45, 0.24)" },
+    { accent: "#2b7a78", soft: "rgba(43, 122, 120, 0.16)", glow: "rgba(43, 122, 120, 0.24)" },
+];
+
+let sources = [];
+let selectedSourceId = null;
+let autoSelectSource = true;
+let settingsCache = null;
+let currentStatus = null;
+let detailVideos = [];
+let detailVideosSourceId = null;
+let pollTimer = null;
+let progressTimer = null;
+let _prevProgressIds = new Set();
+let _progressRunning = false;
+let displayNameManuallyEdited = false;
+let detailActiveTab = "episodes";
+let detailDeleteConfirmVisible = false;
 
 async function api(method, path, body) {
-    const opts = { method, headers: {} };
+    const options = { method, headers: {} };
+
     if (body) {
-        opts.headers['Content-Type'] = 'application/json';
-        opts.body = JSON.stringify(body);
+        options.headers["Content-Type"] = "application/json";
+        options.body = JSON.stringify(body);
     }
-    const res = await fetch(`${API}${path}`, opts);
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail || 'Request failed');
+
+    const response = await fetch(`${API}${path}`, options);
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(error.detail || "Request failed");
     }
-    if (res.status === 204) return null;
-    return res.json();
+
+    if (response.status === 204) {
+        return null;
+    }
+
+    return response.json();
 }
 
-function toast(message, type = 'success') {
-    const el = document.createElement('div');
-    el.className = `toast ${type}`;
-    el.textContent = message;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
+function toast(message, type = "success") {
+    const element = document.createElement("div");
+    element.className = `toast ${type}`;
+    element.textContent = message;
+    document.body.appendChild(element);
+    setTimeout(() => element.remove(), 3000);
+}
+
+function esc(value) {
+    const element = document.createElement("span");
+    element.textContent = value || "";
+    return element.innerHTML;
+}
+
+function formatNumber(value) {
+    return new Intl.NumberFormat().format(Number(value) || 0);
+}
+
+function formatFileSize(bytes) {
+    if (!bytes) {
+        return "";
+    }
+
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
+function parseAppDate(value) {
+    if (!value) {
+        return null;
+    }
+
+    if (value instanceof Date) {
+        return value;
+    }
+
+    const raw = String(value).trim();
+    if (!raw) {
+        return null;
+    }
+
+    // SQLite datetime('now') comes back as "YYYY-MM-DD HH:MM:SS" in UTC.
+    // Treat that form as UTC explicitly so local browsers do not shift it.
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) {
+        return new Date(raw.replace(" ", "T") + "Z");
+    }
+
+    return new Date(raw);
 }
 
 function timeAgo(isoString) {
-    if (!isoString) return 'never';
-    const d = new Date(isoString);
-    const diff = (Date.now() - d.getTime()) / 1000;
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
+    if (!isoString) {
+        return "never";
+    }
+
+    const date = parseAppDate(isoString);
+    if (!date || Number.isNaN(date.getTime())) {
+        return "never";
+    }
+    const diffSeconds = (Date.now() - date.getTime()) / 1000;
+
+    if (diffSeconds < 60) {
+        return "just now";
+    }
+    if (diffSeconds < 3600) {
+        return `${Math.floor(diffSeconds / 60)}m ago`;
+    }
+    if (diffSeconds < 86400) {
+        return `${Math.floor(diffSeconds / 3600)}h ago`;
+    }
+
+    return `${Math.floor(diffSeconds / 86400)}d ago`;
 }
 
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
+function formatSyncAge(isoString) {
+    if (!isoString) {
+        return "New";
+    }
 
-let sources = [];
-let expandedSourceId = null;
+    const date = parseAppDate(isoString);
+    if (!date || Number.isNaN(date.getTime())) {
+        return "New";
+    }
+    const diffSeconds = (Date.now() - date.getTime()) / 1000;
 
-// ---------------------------------------------------------------------------
-// Render
-// ---------------------------------------------------------------------------
+    if (diffSeconds < 60) {
+        return "Just now";
+    }
+    if (diffSeconds < 3600) {
+        const minutes = Math.floor(diffSeconds / 60);
+        return `${minutes} min${minutes === 1 ? "" : "s"}`;
+    }
+    if (diffSeconds < 86400) {
+        const hours = Math.floor(diffSeconds / 3600);
+        return `${hours} hour${hours === 1 ? "" : "s"}`;
+    }
+    if (diffSeconds < 604800) {
+        const days = Math.floor(diffSeconds / 86400);
+        return `${days} day${days === 1 ? "" : "s"}`;
+    }
+    if (diffSeconds < 2592000) {
+        const weeks = Math.floor(diffSeconds / 604800);
+        return `${weeks} week${weeks === 1 ? "" : "s"}`;
+    }
 
-async function loadSources() {
-    try {
-        const newSources = await api('GET', '/api/sources');
-        // Full re-render only when the source list size changes or on first load
-        if (newSources.length !== sources.length) {
-            sources = newSources;
-            renderSources();
-        } else {
-            refreshSourceMeta(newSources);
-        }
-    } catch (e) {
-        console.error('Failed to load sources:', e);
+    const months = Math.floor(diffSeconds / 2592000);
+    return `${months} month${months === 1 ? "" : "s"}`;
+}
+
+function formatDate(isoString) {
+    if (!isoString) {
+        return "Not yet";
+    }
+
+    const date = parseAppDate(isoString);
+    if (!date || Number.isNaN(date.getTime())) {
+        return "Not yet";
+    }
+    return new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    }).format(date);
+}
+
+function deriveDisplayNameFromUrl(rawUrl) {
+    const url = (rawUrl || "").trim();
+    if (!url) {
+        return "";
+    }
+
+    const handleMatch = url.match(/@([A-Za-z0-9._-]+)/);
+    if (!handleMatch) {
+        return "";
+    }
+
+    return handleMatch[1].replace(/[-_]+/g, " ").trim();
+}
+
+function normalizeDownloadStatus(status) {
+    const normalized = String(status || "").toLowerCase();
+
+    if (normalized === "finish" || normalized === "finished" || normalized === "complete") {
+        return "completed";
+    }
+
+    if (normalized === "downloading" || normalized === "in_progress" || normalized === "in-progress") {
+        return "downloading";
+    }
+
+    return normalized || "pending";
+}
+
+function getSourceById(id) {
+    return sources.find((source) => source.id === id) || null;
+}
+
+function getPalette(source) {
+    const offset = source.source_type === "playlist" ? 2 : 0;
+    return SOURCE_PALETTES[(source.id + offset) % SOURCE_PALETTES.length];
+}
+
+function sourceKindLabel(sourceType) {
+    return sourceType === "playlist" ? "Playlist" : "Channel";
+}
+
+function sourceStateLabel(enabled) {
+    return enabled ? "Active" : "Paused";
+}
+
+function sourceSignature(sourceList) {
+    return JSON.stringify(
+        sourceList.map((source) => ({
+            id: source.id,
+            name: source.name,
+            source_type: source.source_type,
+            enabled: source.enabled,
+            last_polled_at: source.last_polled_at,
+            video_count: source.video_count,
+            completed_count: source.completed_count,
+            custom_storage_path: source.custom_storage_path,
+            max_keep_episodes: source.max_keep_episodes,
+            icon_url: source.icon_url,
+        }))
+    );
+}
+
+function ensureSelectedSource() {
+    if (!sources.length) {
+        selectedSourceId = null;
+        return;
+    }
+
+    const selectionStillExists = sources.some((source) => source.id === selectedSourceId);
+    if (!selectionStillExists) {
+        selectedSourceId = autoSelectSource ? sources[0].id : null;
     }
 }
 
-/** Targeted in-place update of counter + last-polled text. No DOM wipe. */
-function refreshSourceMeta(newSources) {
-    for (const s of newSources) {
-        const card = document.querySelector(`.source-card[data-id="${s.id}"]`);
-        if (!card) {
-            // A card is missing — fall back to full render
-            sources = newSources;
-            renderSources();
-            return;
-        }
-        const meta = card.querySelector('.source-meta');
-        if (meta) {
-            meta.innerHTML =
-                `${s.completed_count}/${s.video_count} episodes downloaded` +
-                ` &middot; Last polled: ${timeAgo(s.last_polled_at)}`;
-        }
-    }
-    sources = newSources;
+function replaceSourceInState(updatedSource) {
+    sources = sources.map((source) => (source.id === updatedSource.id ? updatedSource : source));
 }
 
-function renderSources() {
-    const list = document.getElementById('sources-list');
-    const empty = document.getElementById('no-sources');
+function safeSetInputValue(id, value, force = false) {
+    const input = document.getElementById(id);
+    if (!input) {
+        return;
+    }
 
-    if (sources.length === 0) {
-        list.innerHTML = '';
+    if (force || document.activeElement !== input) {
+        input.value = value;
+    }
+}
+
+function buildSourceSummary(source) {
+    const parts = [
+        `${formatNumber(source.completed_count)} ready`,
+        `${formatNumber(source.video_count)} tracked`,
+    ];
+
+    if (source.last_polled_at) {
+        parts.push(`Checked ${timeAgo(source.last_polled_at)}`);
+    } else {
+        parts.push("Not synced yet");
+    }
+
+    return parts.join(" • ");
+}
+
+function renderSourceArtMarkup(source, className = "source-art") {
+    const palette = getPalette(source);
+    const style = `style="--tile-accent:${palette.accent};--tile-soft:${palette.soft};--tile-glow:${palette.glow};"`;
+
+    if (source.icon_url) {
+        return `
+            <div class="${className}" ${style}>
+                <img src="${esc(source.icon_url)}" alt="${esc(source.name)} artwork">
+            </div>
+        `;
+    }
+
+    const initials = source.name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join("") || "PS";
+
+    return `
+        <div class="${className}" ${style}>
+            <span class="source-art-fallback">${esc(initials)}</span>
+        </div>
+    `;
+}
+
+function renderOverview() {
+    const totalShows = sources.length;
+    const totalDownloaded = sources.reduce((sum, source) => sum + (source.completed_count || 0), 0);
+    const activeOrQueued = (currentStatus?.active_downloads || 0) + (currentStatus?.download_queue_size || 0);
+
+    const subtitle = document.getElementById("library-subtitle");
+    if (!totalShows) {
+        subtitle.textContent = "No sources attached yet.";
+        return;
+    }
+
+    const summaryParts = [
+        `${formatNumber(totalShows)} show${totalShows === 1 ? "" : "s"} attached`,
+        `${formatNumber(totalDownloaded)} episode${totalDownloaded === 1 ? "" : "s"} ready`,
+    ];
+
+    if (activeOrQueued > 0) {
+        summaryParts.push(`${formatNumber(activeOrQueued)} active or queued`);
+    } else if (currentStatus?.next_poll) {
+        const nextPoll = new Date(currentStatus.next_poll);
+        const mins = Math.max(0, Math.round((nextPoll.getTime() - Date.now()) / 60000));
+        summaryParts.push(`Next sync in ${mins}m`);
+    } else {
+        summaryParts.push("Library idle");
+    }
+
+    subtitle.textContent = summaryParts.join(" • ");
+}
+
+function renderSourceGrid() {
+    const grid = document.getElementById("sources-grid");
+    const empty = document.getElementById("no-sources");
+
+    if (!sources.length) {
+        grid.innerHTML = "";
         empty.hidden = false;
         return;
     }
+
     empty.hidden = true;
 
-    list.innerHTML = sources.map(s => `
-        <div class="source-card" data-id="${s.id}">
-            <div class="source-header">
-                <span>
-                    ${s.icon_url ? `<img src="${s.icon_url}" class="source-icon" alt="">` : ''}
-                    <span class="source-name">${esc(s.name)}</span>
-                    <span class="badge ${s.source_type}">${s.source_type}</span>
-                </span>
-                <label style="font-size:13px;min-width:auto">
-                    <input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="toggleEnabled(${s.id}, this.checked)"> Enabled
-                </label>
-            </div>
-            <div class="source-meta">
-                ${s.completed_count}/${s.video_count} episodes downloaded
-                &middot; Last polled: ${timeAgo(s.last_polled_at)}
-            </div>
-            <div class="source-path-row">
-                <span class="path-label">Download to:</span>
-                <input type="text" class="path-input" id="path-${s.id}"
-                    value="${esc(s.custom_storage_path || '')}"
-                    placeholder="Default (~/PodcastMirror/${esc(s.name)}/)">
-                <button onclick="browseDirectory('path-${s.id}')" class="btn-secondary btn-sm">Browse…</button>
-                <button onclick="savePath(${s.id})" class="btn-secondary btn-sm">Save path</button>
-            </div>
-            <div class="source-path-row">
-                <span class="path-label">Keep last:</span>
-                <input type="number" class="keep-input" id="keep-${s.id}" min="1"
-                    value="${s.max_keep_episodes || ''}"
-                    placeholder="∞ (keep all)">
-                <span class="path-label" style="white-space:nowrap">episodes on disk</span>
-                <button onclick="saveKeep(${s.id})" class="btn-secondary btn-sm">Save</button>
-            </div>
-            <div class="source-actions">
-                <button onclick="syncSource(${s.id})" class="btn-secondary" style="font-size:12px;padding:4px 10px">Sync Now</button>
-                <button onclick="copyFeedUrl(${s.id})" class="btn-secondary" style="font-size:12px;padding:4px 10px">Copy Feed URL</button>
-                <span class="feed-url" id="feed-url-${s.id}"></span>
-                <button onclick="toggleVideos(${s.id})" class="videos-toggle">
-                    ${expandedSourceId === s.id ? 'Hide' : 'Show'} videos
-                </button>
-                <button onclick="deleteSource(${s.id})" class="btn-danger">Delete</button>
-            </div>
-            ${expandedSourceId === s.id ? `<div class="video-list" id="videos-${s.id}">Loading...</div>` : ''}
-        </div>
-    `).join('');
+    grid.innerHTML = sources
+        .map((source) => {
+            const palette = getPalette(source);
+            const stateClass = source.enabled ? "is-active" : "is-paused";
+            const selectedClass = source.id === selectedSourceId ? "is-selected" : "";
 
-    if (expandedSourceId) loadVideos(expandedSourceId);
+            return `
+                <article
+                    class="source-tile ${selectedClass}"
+                    data-id="${source.id}"
+                    tabindex="0"
+                    style="--tile-accent:${palette.accent};--tile-soft:${palette.soft};--tile-glow:${palette.glow};"
+                    onclick="selectSource(${source.id})"
+                    onkeydown="handleTileKeydown(event, ${source.id})"
+                >
+                    <div class="tile-top">
+                        ${renderSourceArtMarkup(source)}
+                        <div class="tile-meta-row">
+                            <span class="tile-type ${source.source_type}">${sourceKindLabel(source.source_type)}</span>
+                            <span class="tile-state-pill ${stateClass}">${sourceStateLabel(source.enabled)}</span>
+                        </div>
+                    </div>
+
+                    <div class="tile-body">
+                        <div>
+                            <h3 class="tile-name">${esc(source.name)}</h3>
+                            <p class="tile-subtitle">${esc(buildSourceSummary(source))}</p>
+                        </div>
+
+                        <div class="tile-stats">
+                            <div class="tile-stat">
+                                <span class="tile-stat-value">${formatNumber(source.completed_count)}</span>
+                                <span class="tile-stat-label">Ready</span>
+                            </div>
+                            <div class="tile-stat">
+                                <span class="tile-stat-value">${formatNumber(source.video_count)}</span>
+                                <span class="tile-stat-label">Tracked</span>
+                            </div>
+                            <div class="tile-stat">
+                                <span class="tile-stat-value tile-stat-sync">
+                                    <svg class="tile-stat-sync-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="8"></circle>
+                                        <path d="M12 8v5l3 2"></path>
+                                    </svg>
+                                    <span class="tile-stat-sync-value">${formatSyncAge(source.last_polled_at)}</span>
+                                </span>
+                                <span class="tile-stat-label">Last sync</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tile-actions">
+                        <button type="button" class="btn-ghost-sm" onclick="event.stopPropagation(); syncSource(${source.id})">Sync</button>
+                        <button type="button" class="btn-ghost-sm" onclick="event.stopPropagation(); copyFeedUrl(${source.id})">RSS</button>
+                        <label class="mini-toggle" onclick="event.stopPropagation()">
+                            <input
+                                type="checkbox"
+                                ${source.enabled ? "checked" : ""}
+                                onchange="toggleEnabled(${source.id}, this.checked)"
+                            >
+                            <span>${source.enabled ? "Enabled" : "Paused"}</span>
+                        </label>
+                    </div>
+                </article>
+            `;
+        })
+        .join("");
 }
 
-function esc(str) {
-    const el = document.createElement('span');
-    el.textContent = str;
-    return el.innerHTML;
+function renderDetail(forceInputs = false) {
+    const panel = document.getElementById("detail-panel");
+    const source = getSourceById(selectedSourceId);
+
+    if (!source) {
+        panel.hidden = true;
+        document.getElementById("detail-videos").innerHTML = "";
+        return;
+    }
+
+    panel.hidden = false;
+    syncDetailTabUi();
+    document.getElementById("detail-art").innerHTML = renderSourceArtMarkup(source);
+
+    const detailBadge = document.getElementById("detail-badge");
+    detailBadge.textContent = sourceKindLabel(source.source_type);
+    detailBadge.className = `detail-badge ${source.source_type}`;
+
+    const detailEnabledChip = document.getElementById("detail-enabled-chip");
+    detailEnabledChip.textContent = sourceStateLabel(source.enabled);
+    detailEnabledChip.className = `detail-enabled-chip ${source.enabled ? "is-active" : "is-paused"}`;
+
+    document.getElementById("detail-name").textContent = source.name;
+    document.getElementById("detail-meta").textContent =
+        `${formatNumber(source.completed_count)} downloaded of ${formatNumber(source.video_count)} tracked • Added ${formatDate(source.created_at)} • Last checked ${source.last_polled_at ? timeAgo(source.last_polled_at) : "never"}`;
+
+    safeSetInputValue("detail-path", source.custom_storage_path || "", forceInputs);
+    safeSetInputValue("detail-keep", source.max_keep_episodes ? String(source.max_keep_episodes) : "", forceInputs);
+
+    const enabledInput = document.getElementById("detail-enabled");
+    if (forceInputs || document.activeElement !== enabledInput) {
+        enabledInput.checked = !!source.enabled;
+    }
+    document.getElementById("detail-enabled-text").textContent = source.enabled ? "Enabled" : "Paused";
+
+    document.getElementById("detail-episode-summary").textContent =
+        `${formatNumber(source.video_count)} tracked • ${formatNumber(source.completed_count)} ready`;
+
+    void updateDetailFeedUrl(source.id);
 }
 
-async function loadVideos(sourceId) {
+function renderAll(forceInputs = false) {
+    ensureSelectedSource();
+    renderOverview();
+    renderSourceGrid();
+    renderDetail(forceInputs);
+}
+
+function showEpisodeLoading() {
+    const container = document.getElementById("detail-videos");
+    container.innerHTML = `
+        <div class="episode-loading">Loading latest episodes...</div>
+        <div class="episode-loading">Loading latest episodes...</div>
+        <div class="episode-loading">Loading latest episodes...</div>
+    `;
+}
+
+function renderDetailVideos(videos) {
+    const container = document.getElementById("detail-videos");
+
+    if (!videos.length) {
+        container.innerHTML = `
+            <div class="episode-empty">
+                No episodes have been discovered for this source yet. Run a sync to fetch the latest uploads.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = videos
+        .map((video) => {
+            const displayStatus = normalizeDownloadStatus(video.download_status);
+            const sizeText = formatFileSize(video.file_size);
+            const skipButton = !["completed", "skipped", "deleted", "downloading"].includes(displayStatus)
+                ? `<button type="button" class="btn-ghost-sm" onclick="skipVideo(${selectedSourceId}, ${video.id})">Skip</button>`
+                : "";
+            const deleteButton = displayStatus === "completed"
+                ? `<button type="button" class="btn-danger-sm" onclick="deleteVideoFile(${selectedSourceId}, ${video.id})">Delete File</button>`
+                : "";
+            const requeueButton = ["deleted", "failed"].includes(displayStatus)
+                ? `<button type="button" class="btn-ghost-sm" onclick="requeueVideo(${selectedSourceId}, ${video.id})">Re-download</button>`
+                : "";
+            const progressMarkup = displayStatus === "downloading"
+                ? `
+                    <div class="download-progress-bar" id="progress-bar-${video.id}">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="progress-info-text" id="progress-info-${video.id}">Downloading...</div>
+                `
+                : "";
+            const errorMarkup = video.error_message
+                ? `<div class="progress-info-text">${esc(video.error_message)}</div>`
+                : "";
+
+            return `
+                <article class="episode-card" id="video-item-${video.id}">
+                    <div class="episode-card-top">
+                        <div>
+                            <h5 class="episode-title">${esc(video.title)}</h5>
+                            <p class="episode-subline">
+                                <span>${video.publish_date ? formatDate(video.publish_date) : "No publish date"}</span>
+                                ${sizeText ? `<span>${sizeText}</span>` : ""}
+                            </p>
+                        </div>
+                        <div class="episode-status-row">
+                            <span class="video-status ${displayStatus}">${esc(displayStatus)}</span>
+                        </div>
+                    </div>
+                    ${progressMarkup}
+                    ${errorMarkup}
+                    <div class="episode-actions">
+                        ${skipButton}
+                        ${deleteButton}
+                        ${requeueButton}
+                    </div>
+                </article>
+            `;
+        })
+        .join("");
+}
+
+async function loadDetailVideos(sourceId) {
     try {
-        const videos = await api('GET', `/api/sources/${sourceId}/videos`);
-        const container = document.getElementById(`videos-${sourceId}`);
-        if (!container) return;
-
-        if (videos.length === 0) {
-            container.innerHTML = '<p class="info-text">No videos yet. Click "Sync Now" to fetch.</p>';
+        const videos = await api("GET", `/api/sources/${sourceId}/videos`);
+        if (selectedSourceId !== sourceId) {
             return;
         }
 
-        container.innerHTML = videos.map(v => {
-            const sizeMB = v.file_size ? `<span class="size-text">${(v.file_size / 1048576).toFixed(1)} MB</span>` : '';
+        detailVideos = videos;
+        detailVideosSourceId = sourceId;
+        renderDetailVideos(videos);
+    } catch (error) {
+        if (selectedSourceId !== sourceId) {
+            return;
+        }
 
-            const isActionable = !['completed', 'skipped', 'deleted', 'downloading'].includes(v.download_status);
-            const skipBtn = isActionable
-                ? `<button onclick="skipVideo(${sourceId}, ${v.id})" class="btn-skip" title="Skip this video">Skip</button>`
-                : '';
-            const deleteBtn = v.download_status === 'completed'
-                ? `<button onclick="deleteVideoFile(${sourceId}, ${v.id})" class="btn-delete-file" title="Delete file (won't auto-re-download)">Delete file</button>`
-                : '';
-            const requeueBtn = (v.download_status === 'deleted' || v.download_status === 'failed')
-                ? `<button onclick="requeueVideo(${sourceId}, ${v.id})" class="btn-requeue" title="Re-queue for download">Re-download</button>`
-                : '';
-
-            const progressBar = v.download_status === 'downloading' ? `
-                <div class="download-progress-bar" id="progress-bar-${v.id}">
-                    <div class="progress-fill" style="width:0%"></div>
-                </div>
-                <div class="progress-info-text" id="progress-info-${v.id}">Downloading…</div>` : '';
-
-            return `
-            <div class="video-item" id="video-item-${v.id}">
-                <div class="video-item-row">
-                    <span class="video-title">${esc(v.title)} <span class="info-text">${v.publish_date ? v.publish_date.slice(0, 10) : ''}</span></span>
-                    <span class="video-right">
-                        ${sizeMB}
-                        <span class="video-status ${v.download_status}">${v.download_status}</span>
-                        ${skipBtn}${deleteBtn}${requeueBtn}
-                    </span>
-                </div>
-                ${progressBar}
-            </div>`;
-        }).join('');
-    } catch (e) {
-        console.error('Failed to load videos:', e);
+        document.getElementById("detail-videos").innerHTML = `
+            <div class="episode-empty">Could not load episodes for this source.</div>
+        `;
+        console.error("Failed to load videos:", error);
     }
 }
 
-// ---------------------------------------------------------------------------
-// Actions
-// ---------------------------------------------------------------------------
+async function loadSources() {
+    try {
+        const previousSignature = sourceSignature(sources);
+        const previousSelection = selectedSourceId;
+        const previousSelectedSignature = previousSelection
+            ? sourceSignature(sources.filter((source) => source.id === previousSelection))
+            : "[]";
+        const nextSources = await api("GET", "/api/sources");
+        const nextSignature = sourceSignature(nextSources);
 
-document.getElementById('add-source-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const errEl = document.getElementById('add-error');
-    errEl.hidden = true;
+        sources = nextSources;
+        ensureSelectedSource();
 
-    const url = document.getElementById('source-url').value.trim();
-    const name = document.getElementById('source-name').value.trim();
-    const maxBackfill = parseInt(document.getElementById('source-backfill').value, 10);
-    const customPath = document.getElementById('source-path').value.trim() || null;
+        const dataChanged = previousSignature !== nextSignature;
+        const selectionChanged = previousSelection !== selectedSourceId;
+        const nextSelectedSignature = selectedSourceId
+            ? sourceSignature(sources.filter((source) => source.id === selectedSourceId))
+            : "[]";
+        const selectedSourceChanged = previousSelectedSignature !== nextSelectedSignature;
 
-    const keepRaw = document.getElementById('source-keep').value.trim();
-    const maxKeep = keepRaw ? parseInt(keepRaw, 10) : null;
+        if (dataChanged || selectionChanged) {
+            renderAll(selectionChanged);
+        }
+
+        if (selectedSourceId && (selectionChanged || selectedSourceChanged || detailVideosSourceId !== selectedSourceId)) {
+            showEpisodeLoading();
+            await loadDetailVideos(selectedSourceId);
+        }
+    } catch (error) {
+        console.error("Failed to load sources:", error);
+    }
+}
+
+function isLocalOrigin() {
+    return ["localhost", "127.0.0.1"].includes(window.location.hostname);
+}
+
+async function getSettings(force = false) {
+    if (!force && settingsCache) {
+        return settingsCache;
+    }
+
+    settingsCache = await api("GET", "/api/settings");
+    return settingsCache;
+}
+
+async function buildFeedUrl(sourceId) {
+    const origin = isLocalOrigin() ? (await getSettings()).base_url : window.location.origin;
+    return `${origin}/feed/${sourceId}.xml`;
+}
+
+async function updateDetailFeedUrl(sourceId) {
+    const row = document.getElementById("detail-feed-url-row");
+    const text = document.getElementById("detail-feed-url");
+
+    if (!sourceId) {
+        row.hidden = true;
+        text.textContent = "";
+        return;
+    }
 
     try {
-        await api('POST', '/api/sources', { url, name, max_backfill: maxBackfill, custom_storage_path: customPath, max_keep_episodes: maxKeep });
-        document.getElementById('source-url').value = '';
-        document.getElementById('source-name').value = '';
-        document.getElementById('source-path').value = '';
-        document.getElementById('source-keep').value = '';
-        toast('Source added');
-        sources = [];  // Force full re-render on next load
-        loadSources();
-    } catch (e) {
-        errEl.textContent = e.message;
-        errEl.hidden = false;
-    }
-});
+        const url = await buildFeedUrl(sourceId);
+        if (selectedSourceId !== sourceId) {
+            return;
+        }
 
-document.getElementById('browse-source-path').addEventListener('click', () => {
-    browseDirectory('source-path');
-});
+        text.textContent = url;
+        row.hidden = false;
+    } catch (error) {
+        row.hidden = true;
+    }
+}
+
+async function patchSource(sourceId, updates, successMessage) {
+    const updatedSource = await api("PATCH", `/api/sources/${sourceId}`, updates);
+    replaceSourceInState(updatedSource);
+    renderAll(true);
+
+    if (successMessage) {
+        toast(successMessage);
+    }
+
+    return updatedSource;
+}
+
+function syncModalState() {
+    const addModal = document.getElementById("add-modal");
+    const settingsModal = document.getElementById("settings-modal");
+    document.body.classList.toggle("modal-open", !addModal.hidden || !settingsModal.hidden);
+}
+
+function openAddSource() {
+    document.getElementById("add-modal").hidden = false;
+    document.getElementById("add-error").hidden = true;
+    syncModalState();
+    document.getElementById("source-url").focus();
+}
+
+function closeAddSource() {
+    document.getElementById("add-modal").hidden = true;
+    syncModalState();
+}
+
+function closeAddOnBackdrop(event) {
+    if (event.target.id === "add-modal") {
+        closeAddSource();
+    }
+}
+
+function openSettings() {
+    document.getElementById("settings-modal").hidden = false;
+    syncModalState();
+}
+
+function closeSettings() {
+    document.getElementById("settings-modal").hidden = true;
+    syncModalState();
+}
+
+function closeSettingsOnBackdrop(event) {
+    if (event.target.id === "settings-modal") {
+        closeSettings();
+    }
+}
+
+function handleTileKeydown(event, sourceId) {
+    if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        selectSource(sourceId);
+    }
+}
+
+function selectSource(sourceId) {
+    autoSelectSource = true;
+    const selectionChanged = selectedSourceId !== sourceId;
+    selectedSourceId = sourceId;
+    renderAll(selectionChanged);
+
+    if (selectionChanged || detailVideosSourceId !== sourceId) {
+        showEpisodeLoading();
+        void loadDetailVideos(sourceId);
+    }
+
+    if (window.innerWidth <= 1200) {
+        document.getElementById("detail-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+}
+
+function closeDetail() {
+    selectedSourceId = null;
+    autoSelectSource = false;
+    detailVideos = [];
+    detailVideosSourceId = null;
+    detailActiveTab = "episodes";
+    detailDeleteConfirmVisible = false;
+    renderAll(true);
+}
+
+function syncDetailTabUi() {
+    const episodesView = document.getElementById("detail-episodes-view");
+    const settingsView = document.getElementById("detail-settings-view");
+    const settingsButton = document.getElementById("detail-settings-btn");
+    const deleteConfirm = document.getElementById("detail-delete-confirm");
+
+    if (episodesView) {
+        episodesView.hidden = detailActiveTab !== "episodes";
+    }
+    if (settingsView) {
+        settingsView.hidden = detailActiveTab !== "settings";
+    }
+    if (settingsButton) {
+        settingsButton.textContent = detailActiveTab === "settings" ? "Back" : "Settings";
+    }
+    if (deleteConfirm) {
+        deleteConfirm.hidden = !detailDeleteConfirmVisible;
+    }
+}
+
+function openDetailTab(tabName) {
+    detailActiveTab = detailActiveTab === tabName ? "episodes" : tabName;
+    syncDetailTabUi();
+}
 
 async function browseDirectory(inputId) {
     try {
-        const result = await api('POST', '/api/pick-directory');
+        const result = await api("POST", "/api/pick-directory");
         if (result.path) {
             document.getElementById(inputId).value = result.path;
         }
-    } catch (e) {
-        toast('Could not open folder picker', 'error');
+    } catch (error) {
+        toast("Could not open folder picker", "error");
     }
 }
 
-async function syncSource(id) {
+async function syncSource(sourceId) {
     try {
-        await api('POST', `/api/sources/${id}/sync`);
-        toast('Sync started — downloads will appear below');
-        // Expand the video list so progress bars are visible
-        expandedSourceId = id;
-        sources = [];
-        loadSources();
-    } catch (e) {
-        toast(e.message, 'error');
+        await api("POST", `/api/sources/${sourceId}/sync`);
+        const source = getSourceById(sourceId);
+        if (source) {
+            source.last_polled_at = new Date().toISOString();
+        }
+        autoSelectSource = true;
+        selectedSourceId = sourceId;
+        renderAll(true);
+        showEpisodeLoading();
+        void loadDetailVideos(sourceId);
+        void loadStatus();
+        void loadSources();
+        toast("Sync started");
+    } catch (error) {
+        toast(error.message, "error");
     }
 }
 
-document.getElementById('sync-all-btn').addEventListener('click', async () => {
-    try {
-        await api('POST', '/api/sync-all');
-        toast('Sync started for all sources');
-        sources = [];
-        loadSources();
-    } catch (e) {
-        toast(e.message, 'error');
+function syncDetailSource() {
+    if (selectedSourceId) {
+        void syncSource(selectedSourceId);
     }
-});
+}
 
 async function copyFeedUrl(sourceId) {
     try {
-        // If the UI is accessed via a LAN IP, use that — it's already known-good
-        // for other devices. If accessed via localhost, fall back to the server's
-        // detected LAN IP so phone/tablet clients can still reach the feed.
-        const pageOrigin = window.location.origin;
-        const isLocal = pageOrigin.includes('localhost') || pageOrigin.includes('127.0.0.1');
-        let origin = pageOrigin;
-        if (isLocal) {
-            const settings = await api('GET', '/api/settings');
-            origin = settings.base_url;
+        const url = await buildFeedUrl(sourceId);
+        await navigator.clipboard.writeText(url);
+
+        if (sourceId === selectedSourceId) {
+            document.getElementById("detail-feed-url").textContent = url;
+            document.getElementById("detail-feed-url-row").hidden = false;
         }
 
-        const url = `${origin}/feed/${sourceId}.xml`;
-
-        // Show the URL next to the button
-        const urlEl = document.getElementById(`feed-url-${sourceId}`);
-        if (urlEl) urlEl.textContent = url;
-
-        await navigator.clipboard.writeText(url);
-        toast('Feed URL copied!');
-    } catch (e) {
-        toast('Failed to copy URL', 'error');
+        toast("RSS feed copied");
+    } catch (error) {
+        toast("Failed to copy RSS feed", "error");
     }
 }
 
-async function toggleEnabled(id, enabled) {
-    try {
-        await api('PATCH', `/api/sources/${id}`, { enabled });
-    } catch (e) {
-        toast(e.message, 'error');
-        sources = [];
-        loadSources();
+function copyDetailFeedUrl() {
+    if (selectedSourceId) {
+        void copyFeedUrl(selectedSourceId);
     }
 }
 
-function toggleVideos(id) {
-    expandedSourceId = expandedSourceId === id ? null : id;
-    renderSources();
-}
-
-async function savePath(id) {
-    const path = document.getElementById(`path-${id}`).value.trim();
+async function toggleEnabled(sourceId, enabled) {
     try {
-        await api('PATCH', `/api/sources/${id}`, { custom_storage_path: path || null });
-        toast('Download path saved');
-    } catch (e) {
-        toast(e.message, 'error');
+        await patchSource(sourceId, { enabled }, enabled ? "Source enabled" : "Source paused");
+    } catch (error) {
+        renderAll(true);
+        toast(error.message, "error");
     }
 }
 
-async function saveKeep(id) {
-    const raw = document.getElementById(`keep-${id}`).value.trim();
-    const max_keep_episodes = raw ? parseInt(raw, 10) : null;
+async function saveDetailPath() {
+    if (!selectedSourceId) {
+        return;
+    }
+
+    const customStoragePath = document.getElementById("detail-path").value.trim() || null;
     try {
-        await api('PATCH', `/api/sources/${id}`, { max_keep_episodes });
-        toast(max_keep_episodes ? `Will keep last ${max_keep_episodes} episodes` : 'Keep limit removed');
-    } catch (e) {
-        toast(e.message, 'error');
+        await patchSource(selectedSourceId, { custom_storage_path: customStoragePath }, "Download folder saved");
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+async function saveDetailKeep() {
+    if (!selectedSourceId) {
+        return;
+    }
+
+    const raw = document.getElementById("detail-keep").value.trim();
+    const maxKeepEpisodes = raw ? parseInt(raw, 10) : null;
+
+    try {
+        await patchSource(
+            selectedSourceId,
+            { max_keep_episodes: maxKeepEpisodes },
+            maxKeepEpisodes ? `Will keep last ${maxKeepEpisodes} episodes` : "Keep limit removed"
+        );
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+async function saveDetailEnabled() {
+    if (!selectedSourceId) {
+        return;
+    }
+
+    const enabled = document.getElementById("detail-enabled").checked;
+    try {
+        await patchSource(selectedSourceId, { enabled }, enabled ? "Source enabled" : "Source paused");
+    } catch (error) {
+        renderAll(true);
+        toast(error.message, "error");
     }
 }
 
 async function skipVideo(sourceId, videoId) {
     try {
-        await api('DELETE', `/api/sources/${sourceId}/videos/${videoId}`);
-        const el = document.getElementById(`video-item-${videoId}`);
-        if (el) {
-            el.querySelector('.video-status').className = 'video-status skipped';
-            el.querySelector('.video-status').textContent = 'skipped';
-            const skipBtn = el.querySelector('.btn-skip');
-            if (skipBtn) skipBtn.remove();
-        }
-        refreshSourceMeta(sources);
-    } catch (e) {
-        toast(e.message, 'error');
+        await api("DELETE", `/api/sources/${sourceId}/videos/${videoId}`);
+        toast("Episode skipped");
+        await loadDetailVideos(sourceId);
+        await loadSources();
+    } catch (error) {
+        toast(error.message, "error");
     }
 }
 
 async function deleteVideoFile(sourceId, videoId) {
-    if (!confirm('Delete the downloaded file? It will NOT be re-downloaded automatically — use "Re-download" to queue it again.')) return;
+    if (!confirm("Delete the downloaded file? It will not be re-downloaded automatically.")) {
+        return;
+    }
+
     try {
-        await api('DELETE', `/api/sources/${sourceId}/videos/${videoId}/file`);
-        loadVideos(sourceId);
-        sources = [];
-        loadSources();
-    } catch (e) {
-        toast(e.message, 'error');
+        await api("DELETE", `/api/sources/${sourceId}/videos/${videoId}/file`);
+        toast("Downloaded file removed");
+        await loadDetailVideos(sourceId);
+        await loadSources();
+    } catch (error) {
+        toast(error.message, "error");
     }
 }
 
 async function requeueVideo(sourceId, videoId) {
     try {
-        await api('POST', `/api/sources/${sourceId}/videos/${videoId}/requeue`);
-        toast('Re-queued — will download on next sync');
-        loadVideos(sourceId);
-    } catch (e) {
-        toast(e.message, 'error');
+        await api("POST", `/api/sources/${sourceId}/videos/${videoId}/requeue`);
+        toast("Episode queued for download");
+        await loadDetailVideos(sourceId);
+        await loadSources();
+    } catch (error) {
+        toast(error.message, "error");
     }
 }
 
-async function deleteSource(id) {
-    if (!confirm('Delete this source and all its videos?')) return;
+async function deleteSource(sourceId) {
     try {
-        await api('DELETE', `/api/sources/${id}`);
-        toast('Source deleted');
-        if (expandedSourceId === id) expandedSourceId = null;
-        sources = [];
-        loadSources();
-    } catch (e) {
-        toast(e.message, 'error');
+        await api("DELETE", `/api/sources/${sourceId}`);
+        toast("Source deleted");
+
+        if (selectedSourceId === sourceId) {
+            selectedSourceId = null;
+            detailVideos = [];
+            detailVideosSourceId = null;
+            detailActiveTab = "episodes";
+            detailDeleteConfirmVisible = false;
+        }
+
+        await loadSources();
+        await loadStatus();
+    } catch (error) {
+        toast(error.message, "error");
     }
 }
 
-// Settings
-document.getElementById('save-api-key').addEventListener('click', async () => {
-    const key = document.getElementById('api-key').value.trim();
-    try {
-        await api('PATCH', '/api/settings', { youtube_api_key: key });
-        document.getElementById('api-key').value = '';
-        toast('API key saved');
-        loadStatus();
-    } catch (e) {
-        toast(e.message, 'error');
+function deleteDetailSource() {
+    if (selectedSourceId) {
+        detailDeleteConfirmVisible = true;
+        syncDetailTabUi();
     }
-});
+}
 
-document.getElementById('save-poll-interval').addEventListener('click', async () => {
-    const interval = parseInt(document.getElementById('poll-interval').value, 10);
-    try {
-        await api('PATCH', '/api/settings', { poll_interval_minutes: interval });
-        toast('Poll interval updated');
-        loadStatus();
-    } catch (e) {
-        toast(e.message, 'error');
+function cancelDetailDelete() {
+    detailDeleteConfirmVisible = false;
+    syncDetailTabUi();
+}
+
+function confirmDeleteDetailSource() {
+    if (selectedSourceId) {
+        detailDeleteConfirmVisible = false;
+        syncDetailTabUi();
+        void deleteSource(selectedSourceId);
     }
-});
-
-// ---------------------------------------------------------------------------
-// Status polling
-// ---------------------------------------------------------------------------
+}
 
 async function loadStatus() {
     try {
-        const status = await api('GET', '/api/status');
-        document.getElementById('server-status').className = 'status-dot green';
-        document.getElementById('status-text').textContent = 'Connected';
+        const [status, settings] = await Promise.all([
+            api("GET", "/api/status"),
+            getSettings(true),
+        ]);
 
-        let pollText = '';
+        currentStatus = status;
+        settingsCache = settings;
+
+        const dot = document.getElementById("server-status");
+        dot.className = `status-dot ${status.active_downloads > 0 ? "is-busy" : "is-live"}`;
+        document.getElementById("status-text").textContent = status.active_downloads > 0 ? "Syncing" : "Connected";
+
+        const parts = [];
         if (status.next_poll) {
             const next = new Date(status.next_poll);
-            const mins = Math.max(0, Math.round((next - Date.now()) / 60000));
-            pollText = `Next poll: ${mins}m`;
+            const mins = Math.max(0, Math.round((next.getTime() - Date.now()) / 60000));
+            parts.push(`Next sync ${mins}m`);
         }
         if (status.active_downloads > 0) {
-            pollText += ` | ${status.active_downloads} downloading`;
+            parts.push(`${status.active_downloads} downloading`);
         }
         if (status.download_queue_size > 0) {
-            pollText += ` | ${status.download_queue_size} queued`;
+            parts.push(`${status.download_queue_size} queued`);
         }
-        document.getElementById('next-poll').textContent = pollText;
+        document.getElementById("next-poll").textContent = parts.join(" • ");
 
-        const cancelBtn = document.getElementById('cancel-downloads-btn');
-        if (cancelBtn) {
-            cancelBtn.hidden = (status.active_downloads === 0 && status.download_queue_size === 0);
+        document.getElementById("cancel-downloads-btn").hidden =
+            status.active_downloads === 0 && status.download_queue_size === 0;
+
+        safeSetInputValue("poll-interval", String(settings.poll_interval_minutes));
+        document.getElementById("settings-info").textContent =
+            `Base URL: ${settings.base_url} • API key: ${settings.youtube_api_key_set ? "set" : "not set"} • Storage: ${settings.storage_path}`;
+
+        renderOverview();
+        if (selectedSourceId) {
+            void updateDetailFeedUrl(selectedSourceId);
         }
-
-        // Load settings
-        const settings = await api('GET', '/api/settings');
-        document.getElementById('poll-interval').value = settings.poll_interval_minutes;
-        document.getElementById('settings-info').textContent =
-            `Base URL: ${settings.base_url} | API key: ${settings.youtube_api_key_set ? 'set' : 'not set'} | Storage: ${settings.storage_path}`;
-    } catch (e) {
-        document.getElementById('server-status').className = 'status-dot red';
-        document.getElementById('status-text').textContent = 'Disconnected';
+    } catch (error) {
+        currentStatus = null;
+        document.getElementById("server-status").className = "status-dot is-offline";
+        document.getElementById("status-text").textContent = "Disconnected";
+        document.getElementById("next-poll").textContent = "";
+        renderOverview();
     }
 }
 
-let _prevProgressIds = new Set();
-let _progressRunning = false;
-
 async function refreshProgress() {
-    if (_progressRunning) return;
+    if (_progressRunning) {
+        return;
+    }
+
     _progressRunning = true;
+
     try {
-        const progress = await api('GET', '/api/downloads/progress');
+        const progress = await api("GET", "/api/downloads/progress");
         const currentIds = new Set(Object.keys(progress).map(Number));
 
-        const completedSome = [..._prevProgressIds].some(id => !currentIds.has(id));
-        const newStarted = [...currentIds].some(id => !_prevProgressIds.has(id));
+        const completedSome = [..._prevProgressIds].some((id) => !currentIds.has(id));
+        const newStarted = [...currentIds].some((id) => !_prevProgressIds.has(id));
         _prevProgressIds = currentIds;
 
-        // Refresh the video list FIRST (creates/removes progress bar DOM elements),
-        // then paint bars below. Awaiting ensures the DOM is ready before we update it.
-        if ((completedSome || newStarted) && expandedSourceId) {
-            await loadVideos(expandedSourceId);
-            if (completedSome) {
-                sources = [];
-                loadSources();
-            }
+        if ((completedSome || newStarted) && selectedSourceId) {
+            await loadDetailVideos(selectedSourceId);
+            await loadSources();
         }
 
-        // Paint / update all visible progress bars
         for (const [videoDbId, data] of Object.entries(progress)) {
-            const bar = document.getElementById(`progress-bar-${videoDbId}`);
-            const info = document.getElementById(`progress-info-${videoDbId}`);
-            if (!bar) continue;
-            const fill = bar.querySelector('.progress-fill');
+            const progressBar = document.getElementById(`progress-bar-${videoDbId}`);
+            const progressInfo = document.getElementById(`progress-info-${videoDbId}`);
+            if (!progressBar) {
+                continue;
+            }
+
+            const fill = progressBar.querySelector(".progress-fill");
             if (data.total_bytes > 0) {
-                const pct = Math.min(100, (data.downloaded_bytes / data.total_bytes) * 100);
-                fill.style.width = `${pct.toFixed(1)}%`;
-                const dlMB = (data.downloaded_bytes / 1048576).toFixed(1);
-                const totalMB = (data.total_bytes / 1048576).toFixed(1);
-                if (info) info.textContent = `${dlMB} / ${totalMB} MB`;
-            } else if (data.downloaded_bytes > 0) {
-                const dlMB = (data.downloaded_bytes / 1048576).toFixed(1);
-                if (info) info.textContent = `${dlMB} MB downloaded…`;
+                const percentage = Math.min(100, (data.downloaded_bytes / data.total_bytes) * 100);
+                fill.style.width = `${percentage.toFixed(1)}%`;
+
+                if (progressInfo) {
+                    const downloadedMb = (data.downloaded_bytes / 1048576).toFixed(1);
+                    const totalMb = (data.total_bytes / 1048576).toFixed(1);
+                    progressInfo.textContent = `${downloadedMb} / ${totalMb} MB`;
+                }
+            } else if (progressInfo && data.downloaded_bytes > 0) {
+                const downloadedMb = (data.downloaded_bytes / 1048576).toFixed(1);
+                progressInfo.textContent = `${downloadedMb} MB downloaded...`;
             }
         }
-    } catch (e) {
-        // Non-critical — ignore
+    } catch (error) {
+        // Progress polling is best-effort only.
     } finally {
         _progressRunning = false;
     }
@@ -497,37 +1028,150 @@ async function refreshProgress() {
 
 async function cancelDownloads() {
     try {
-        await api('POST', '/api/downloads/cancel-all');
-        toast('Downloads cancelled — queued items will not start');
-        loadStatus();
-    } catch (e) {
-        toast(e.message, 'error');
+        await api("POST", "/api/downloads/cancel-all");
+        toast("Downloads cancelled");
+        await loadStatus();
+    } catch (error) {
+        toast(error.message, "error");
     }
 }
 
-// Poll for updates when page is visible
-let pollTimer;
-let progressTimer;
-function startPolling() {
-    loadStatus();
-    loadSources();
-    pollTimer = setInterval(() => {
-        if (!document.hidden) {
-            loadStatus();
-            loadSources();  // Uses refreshSourceMeta when count is unchanged — no flicker
-        }
-    }, 5000);
-    progressTimer = setInterval(() => {
-        if (!document.hidden) refreshProgress();
-    }, 1000);
-}
+document.getElementById("add-source-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
 
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-        loadStatus();
-        loadSources();
+    const errorElement = document.getElementById("add-error");
+    errorElement.hidden = true;
+
+    const url = document.getElementById("source-url").value.trim();
+    const name = document.getElementById("source-name").value.trim();
+    const maxBackfill = parseInt(document.getElementById("source-backfill").value, 10);
+    const customStoragePath = document.getElementById("source-path").value.trim() || null;
+    const keepRaw = document.getElementById("source-keep").value.trim();
+    const maxKeepEpisodes = keepRaw ? parseInt(keepRaw, 10) : null;
+
+    try {
+        const createdSource = await api("POST", "/api/sources", {
+            url,
+            name,
+            max_backfill: maxBackfill,
+            custom_storage_path: customStoragePath,
+            max_keep_episodes: maxKeepEpisodes,
+        });
+
+        document.getElementById("add-source-form").reset();
+        document.getElementById("source-backfill").value = "15";
+        displayNameManuallyEdited = false;
+        selectedSourceId = createdSource.id;
+        autoSelectSource = true;
+        detailVideos = [];
+        detailVideosSourceId = null;
+        closeAddSource();
+        toast("Source added");
+        await loadSources();
+        await loadStatus();
+    } catch (error) {
+        errorElement.textContent = error.message;
+        errorElement.hidden = false;
     }
 });
 
-// Initialize
+document.getElementById("browse-source-path").addEventListener("click", () => {
+    void browseDirectory("source-path");
+});
+
+document.getElementById("source-url").addEventListener("input", (event) => {
+    if (displayNameManuallyEdited) {
+        return;
+    }
+
+    document.getElementById("source-name").value = deriveDisplayNameFromUrl(event.target.value);
+});
+
+document.getElementById("source-name").addEventListener("input", (event) => {
+    const currentValue = event.target.value.trim();
+    const suggestedName = deriveDisplayNameFromUrl(document.getElementById("source-url").value);
+    displayNameManuallyEdited = currentValue !== "" && currentValue !== suggestedName;
+});
+
+document.getElementById("sync-all-btn").addEventListener("click", async () => {
+    try {
+        await api("POST", "/api/sync-all");
+        toast("Sync started for all sources");
+        await loadStatus();
+        await loadSources();
+    } catch (error) {
+        toast(error.message, "error");
+    }
+});
+
+document.getElementById("save-api-key").addEventListener("click", async () => {
+    const key = document.getElementById("api-key").value.trim();
+
+    try {
+        await api("PATCH", "/api/settings", { youtube_api_key: key });
+        document.getElementById("api-key").value = "";
+        toast("API key saved");
+        await loadStatus();
+    } catch (error) {
+        toast(error.message, "error");
+    }
+});
+
+document.getElementById("save-poll-interval").addEventListener("click", async () => {
+    const interval = parseInt(document.getElementById("poll-interval").value, 10);
+
+    try {
+        await api("PATCH", "/api/settings", { poll_interval_minutes: interval });
+        toast("Sync interval updated");
+        await loadStatus();
+    } catch (error) {
+        toast(error.message, "error");
+    }
+});
+
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+        void loadStatus();
+        void loadSources();
+    }
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") {
+        return;
+    }
+
+    if (!document.getElementById("add-modal").hidden) {
+        closeAddSource();
+        return;
+    }
+
+    if (!document.getElementById("settings-modal").hidden) {
+        closeSettings();
+        return;
+    }
+
+    if (window.innerWidth <= 1200 && selectedSourceId) {
+        closeDetail();
+    }
+});
+
+function startPolling() {
+    void loadStatus();
+    void loadSources();
+
+    pollTimer = setInterval(() => {
+        if (!document.hidden) {
+            void loadStatus();
+            void loadSources();
+        }
+    }, 5000);
+
+    progressTimer = setInterval(() => {
+        if (!document.hidden) {
+            void refreshProgress();
+        }
+    }, 1000);
+}
+
 startPolling();

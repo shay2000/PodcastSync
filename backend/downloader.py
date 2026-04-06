@@ -297,9 +297,21 @@ async def sync_source(
     # Cap at 50 to prevent accidentally fetching hundreds; use max_backfill as the limit
     max_results = min(max_backfill, 50)
 
+    # Record the check at the start of the sync attempt so the UI reflects
+    # that a manual sync was actually triggered even if fetching finds nothing
+    # or later steps fail.
+    db.execute(
+        "UPDATE sources SET last_polled_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
+        (source_id,),
+    )
+
     # Fetch video metadata
     logger.info("Syncing source %d (%s): %s %s", source_id, source_name, source_type, youtube_id)
-    videos = await orchestrator.fetch_videos(source_type, youtube_id, max_results=max_results)
+    try:
+        videos = await orchestrator.fetch_videos(source_type, youtube_id, max_results=max_results)
+    except Exception:
+        logger.exception("Failed to fetch videos for source %d", source_id)
+        return 0, 0
 
     # Filter out already-known videos and insert new ones
     new_count = 0
@@ -317,9 +329,6 @@ async def sync_source(
         )
         if result is not None:
             new_count += 1
-
-    # Update last polled timestamp
-    db.execute("UPDATE sources SET last_polled_at = datetime('now'), updated_at = datetime('now') WHERE id = ?", (source_id,))
 
     logger.info("Found %d new videos for source %d", new_count, source_id)
 
