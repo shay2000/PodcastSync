@@ -1,5 +1,10 @@
 # PodcastSync
 
+![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-111827?style=flat-square)
+![App Type](https://img.shields.io/badge/app-menu%20bar-0f766e?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-166534?style=flat-square)
+![Status](https://img.shields.io/badge/status-active-9a3412?style=flat-square)
+
 Turn YouTube channels and playlists into self-hosted podcast feeds.
 
 PodcastSync is a macOS menu bar app that monitors YouTube sources, downloads audio as MP3, and serves podcast RSS feeds on your local network. Subscribe to the feeds in Apple Podcasts, Downcast, or another podcast client on your LAN.
