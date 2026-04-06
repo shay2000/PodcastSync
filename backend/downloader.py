@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import shutil
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -20,8 +21,29 @@ logger = logging.getLogger(__name__)
 _FFMPEG_SEARCH_PATHS = ["/usr/local/bin/ffmpeg", "/opt/homebrew/bin/ffmpeg"]
 
 
+def _bundled_ffmpeg_candidates() -> list[Path]:
+    """Return likely bundled ffmpeg locations for frozen builds."""
+    candidates: list[Path] = []
+
+    if getattr(sys, "frozen", False):
+        executable_dir = Path(sys.executable).resolve().parent
+        candidates.extend([
+            executable_dir / "tools" / "bin" / "ffmpeg",
+            executable_dir.parent / "tools" / "bin" / "ffmpeg",
+            executable_dir / "_internal" / "tools" / "bin" / "ffmpeg",
+        ])
+
+    return candidates
+
+
 def find_ffmpeg() -> Optional[str]:
     """Locate ffmpeg binary on the system."""
+    bundled = os.getenv("PODCASTSYNC_FFMPEG", "").strip()
+    if bundled and os.path.isfile(bundled) and os.access(bundled, os.X_OK):
+        return bundled
+    for candidate in _bundled_ffmpeg_candidates():
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
     path = shutil.which("ffmpeg")
     if path:
         return path
@@ -59,7 +81,8 @@ class DownloadManager:
         if not self.ffmpeg_path:
             logger.warning(
                 "ffmpeg not found! Audio downloads will fail. "
-                "Install with: brew install ffmpeg"
+                "Packaged builds should bundle ffmpeg automatically. "
+                "Development mode still requires it on the host machine."
             )
 
         self.storage_path.mkdir(parents=True, exist_ok=True)

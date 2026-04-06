@@ -2,7 +2,7 @@
 
 Turn YouTube channels and playlists into self-hosted podcast feeds.
 
-PodcastSync is a macOS menu bar app that monitors YouTube sources, downloads audio as MP3, and serves podcast RSS feeds on your local network. Subscribe to the feeds in Apple Podcasts, Overcast, Downcast, or any podcast client.
+PodcastSync is a macOS menu bar app that monitors YouTube sources, downloads audio as MP3, and serves podcast RSS feeds on your local network. Subscribe to the feeds in Apple Podcasts, Downcast, or another podcast client on your LAN.
 
 ## Features
 
@@ -17,17 +17,18 @@ PodcastSync is a macOS menu bar app that monitors YouTube sources, downloads aud
 ## Requirements
 
 - macOS 13 (Ventura) or later
-- [ffmpeg](https://ffmpeg.org/) — install via `brew install ffmpeg`
 - (Optional) [YouTube Data API v3 key](https://console.cloud.google.com/apis/credentials) — enables full video history and handle resolution; without it, the app uses YouTube's public RSS feeds (~15 most recent videos)
 
 ## Installation
 
 ### From DMG
 
-1. Download or build `PodcastSync.dmg`
+1. Download the latest `PodcastSync.dmg` from the [GitHub Releases page](https://github.com/shay2000/PodcastSync/releases) or build it locally
 2. Open the DMG and drag `PodcastSync.app` to Applications
-3. Right-click the app → **Open** (required once, to bypass Gatekeeper for unsigned apps)
+3. Right-click the app → **Open** (required once, to bypass Gatekeeper for this ad-hoc signed app)
 4. The app appears in your menu bar
+
+The packaged DMG bundles the Python backend, `yt-dlp`, `ffmpeg`, and `ffprobe`, so end users do not need to install Homebrew, Python, or extra media tools first.
 
 ### Development mode
 
@@ -36,9 +37,12 @@ git clone <repo-url>
 cd "Youtube Podcast Sync"
 
 # Set up Python environment
-/usr/local/bin/python3.11 -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+
+# Development mode still expects ffmpeg on the local machine
+brew install ffmpeg
 
 # Run the backend directly
 ./scripts/dev.sh
@@ -61,9 +65,11 @@ pip install -r requirements.txt
 1. In the web UI, click **Copy Feed URL** next to a source
 2. In your podcast app:
    - **Apple Podcasts**: File → Subscribe to Show by URL → paste the URL
-   - **Overcast**: Add URL → paste
    - **Downcast**: Add → Feed URL → paste
 3. The feed URL looks like `http://192.168.x.x:8642/feed/1.xml`
+
+Overcast disclaimer:
+Overcast is known to not work reliably with PodcastSync feeds at the moment. Use Apple Podcasts or Downcast instead.
 
 ### Setting up the YouTube API key
 
@@ -80,10 +86,13 @@ The API key is optional but recommended — it enables:
 ## Building
 
 ```bash
-# Bundle the Python backend (~60 min first time)
-./scripts/build_backend.sh
+# Install Python dependencies for the backend and the packager
+pip install -r requirements.txt
 
-# Build the .app and .dmg (~3 min)
+# Ensure ffmpeg is available on the build machine so it can be bundled
+brew install ffmpeg
+
+# Build a fresh self-contained .app and .dmg
 ./scripts/build_app.sh
 
 # Output: build/PodcastSync.dmg
@@ -116,8 +125,9 @@ The API key is optional but recommended — it enables:
 
 ## Known limitations
 
-- ffmpeg must be installed separately (not bundled)
-- The app is unsigned — Gatekeeper will prompt on first launch
+- The app is ad-hoc signed, not notarized, so Gatekeeper will prompt on first launch
+- Building the DMG still requires `ffmpeg` on the machine doing the build; the finished DMG bundles it for end users
+- Overcast is known to not work reliably with PodcastSync feeds
 - YouTube's RSS feeds return only ~15 most recent videos (use an API key for full history)
 - Podcast clients may cache feeds aggressively (new episodes can take up to an hour to appear)
 - The server must be running for podcast clients to fetch episodes

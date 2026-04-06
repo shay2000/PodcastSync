@@ -1,0 +1,27 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="bg" x1="128" y1="112" x2="896" y2="928" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#16305D"/>
+            <stop offset="0.56" stop-color="#264A84"/>
+            <stop offset="1" stop-color="#C86446"/>
+        </linearGradient>
+        <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(768 236) rotate(130.685) scale(512 512)">
+            <stop stop-color="white" stop-opacity="0.28"/>
+            <stop offset="1" stop-color="white" stop-opacity="0"/>
+        </radialGradient>
+    </defs>
+
+    <rect x="48" y="48" width="928" height="928" rx="220" fill="url(#bg)"/>
+    <rect x="48" y="48" width="928" height="928" rx="220" fill="url(#glow)"/>
+    <rect x="140" y="140" width="744" height="744" rx="176" stroke="white" stroke-opacity="0.12" stroke-width="8"/>
+
+    <g fill="#FFF7F1">
+        <rect x="250" y="410" width="72" height="204" rx="36"/>
+        <rect x="378" y="286" width="72" height="452" rx="36"/>
+        <rect x="506" y="192" width="72" height="640" rx="36"/>
+        <rect x="634" y="286" width="72" height="452" rx="36"/>
+        <rect x="762" y="410" width="72" height="204" rx="36"/>
+    </g>
+
+    <ellipse cx="512" cy="790" rx="244" ry="74" fill="white" fill-opacity="0.1"/>
+</svg>

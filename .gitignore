@@ -12,3 +12,4 @@ venv/
 .DS_Store
 *.dmg
 *.app
+macos/PodcastSync/.build/

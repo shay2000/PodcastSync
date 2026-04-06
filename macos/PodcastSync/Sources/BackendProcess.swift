@@ -32,11 +32,19 @@ class BackendProcess: ObservableObject {
         statusIcon = "antenna.radiowaves.left.and.right"
 
         let proc = Process()
+        var env = ProcessInfo.processInfo.environment
 
         // Look for the bundled backend in the app's Resources
         let bundlePath = Bundle.main.resourcePath ?? ""
         let backendPath = "\(bundlePath)/backend/podcastsync-backend"
+        let bundledToolsPath = "\(bundlePath)/tools/bin"
+        let bundledFFmpegPath = "\(bundledToolsPath)/ffmpeg"
         let uvicornPath = findUvicorn()
+
+        if FileManager.default.isExecutableFile(atPath: bundledFFmpegPath) {
+            env["PODCASTSYNC_FFMPEG"] = bundledFFmpegPath
+            env["PATH"] = "\(bundledToolsPath):\(env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin")"
+        }
 
         if FileManager.default.fileExists(atPath: backendPath) {
             // Bundled PyInstaller binary
@@ -50,14 +58,14 @@ class BackendProcess: ObservableObject {
                 "--port", String(port),
             ]
             proc.currentDirectoryURL = projectRoot
-            var env = ProcessInfo.processInfo.environment
             env["PYTHONPATH"] = projectRoot.path
-            proc.environment = env
         } else {
             statusText = "Backend not found"
             statusIcon = "exclamationmark.triangle"
             return
         }
+
+        proc.environment = env
 
         stdoutPipe = Pipe()
         stderrPipe = Pipe()

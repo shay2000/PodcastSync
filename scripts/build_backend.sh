@@ -1,21 +1,37 @@
 #!/bin/bash
 # Bundle the Python backend into a standalone directory using PyInstaller.
 # Output: build/backend-dist/podcastsync-backend/
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_DIR/build"
+VENV_DIR="${PODCASTSYNC_VENV:-$PROJECT_DIR/venv}"
+PYTHON_BIN="$VENV_DIR/bin/python"
+PYINSTALLER_CONFIG_DIR="$BUILD_DIR/pyinstaller-config"
 
 cd "$PROJECT_DIR"
-source venv/bin/activate
+
+if [ ! -x "$PYTHON_BIN" ]; then
+    echo "ERROR: Python virtual environment not found at $VENV_DIR"
+    echo "Create it first, then install the project requirements."
+    exit 1
+fi
+
+if ! "$PYTHON_BIN" -c "import PyInstaller" >/dev/null 2>&1; then
+    echo "ERROR: PyInstaller is not installed in $VENV_DIR"
+    echo "Run: $PYTHON_BIN -m pip install -r requirements.txt"
+    exit 1
+fi
 
 echo "=== Bundling Python backend with PyInstaller ==="
+echo "  Using Python: $PYTHON_BIN"
 
-# Clean previous builds
 rm -rf "$BUILD_DIR/backend-dist" "$BUILD_DIR/backend-build"
+mkdir -p "$PYINSTALLER_CONFIG_DIR"
 
-pyinstaller \
+PYINSTALLER_CONFIG_DIR="$PYINSTALLER_CONFIG_DIR" \
+"$PYTHON_BIN" -m PyInstaller \
     --name podcastsync-backend \
     --distpath "$BUILD_DIR/backend-dist" \
     --workpath "$BUILD_DIR/backend-build" \
@@ -39,8 +55,12 @@ pyinstaller \
     --hidden-import backend.fetcher.url_parser \
     backend/main.py
 
-# Copy static files and migrations into the bundle
 DIST="$BUILD_DIR/backend-dist/podcastsync-backend"
+if [ ! -x "$DIST/podcastsync-backend" ]; then
+    echo "ERROR: Expected backend executable not found at $DIST/podcastsync-backend"
+    exit 1
+fi
+
 echo "=== Copying static assets ==="
 mkdir -p "$DIST/_internal/backend"
 cp -r "$PROJECT_DIR/backend/static" "$DIST/_internal/backend/static"
