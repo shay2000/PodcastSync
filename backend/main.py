@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from backend._resources import resource_path
 from backend.config import Settings
 from backend.database import DatabaseManager
 from backend.downloader import DownloadManager, sync_source
@@ -87,9 +87,11 @@ app.include_router(feeds_router)
 app.include_router(audio_router)
 
 # Mount static files (web UI) — served at root, MUST be last
-static_dir = Path(__file__).parent / "static"
+static_dir = resource_path("static")
 if static_dir.is_dir():
     app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+else:
+    logger.warning("Static web UI directory not found at %s", static_dir)
 
 
 def run():

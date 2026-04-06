@@ -4,8 +4,8 @@
 PodcastSync is a macOS menu bar app that monitors YouTube channels/playlists, downloads audio as MP3, and serves podcast RSS feeds on the local network. It consists of a Python backend (FastAPI) and a Swift menu bar wrapper. **All milestones (M1–M6) are complete.** The app is packaged as a 67 MB `.dmg` at `build/PodcastSync.dmg`.
 
 ## Tech stack
-- Python 3.11.6 (at `/usr/local/bin/python3.11`)
-- FastAPI 0.135 + uvicorn 0.43 (HTTP server)
+- Python 3.9.6+ (system Python at `/usr/bin/python3`; 3.11 was originally used but the bundle runs on 3.9)
+- FastAPI 0.128+ + uvicorn 0.39+ (HTTP server)
 - yt-dlp 2026.3.17 + ffmpeg (audio downloading/conversion)
 - google-api-python-client 2.193 (YouTube Data API v3)
 - feedparser 6.0.12 (YouTube RSS/Atom feeds)
@@ -118,12 +118,15 @@ PodcastSync/
 - YouTube API key not tested end-to-end (RSS fallback confirmed working)
 - PyInstaller build takes ~60 minutes on first run (cached subsequent runs are faster)
 - The app is unsigned — macOS Gatekeeper will prompt; right-click → Open to bypass
+- The original Python 3.11 Homebrew installation has been removed; the project now runs on Python 3.9.6 (system Python). The `venv/` was recreated with Python 3.9.6 and all packages installed. `pyproject.toml` updated to `requires-python = ">=3.9"`.
+- The `build/` directory was cleaned up (Apr 2026): removed numbered intermediates (PodcastSync 2/3/4.app, PodcastSync 2.dmg). The canonical working build is `build/PodcastSync.dmg` + `build/PodcastSync.app` (arm64, Python 3.9, ~56 MB DMG). Confirmed: backend starts, all HTTP endpoints return 200 OK.
 
 ## Environment & setup
 ```bash
 # Development
 cd "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync"
-/usr/local/bin/python3.11 -m venv venv
+# Python 3.9.6 (system) works — the Homebrew Python 3.11 is no longer present
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 

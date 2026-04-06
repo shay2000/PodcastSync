@@ -1,0 +1,19 @@
+{
+  "": {
+    "dependencies": "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/release/PodcastSync.build/PodcastSync.d",
+    "object": "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/release/PodcastSync.build/PodcastSync.o",
+    "swift-dependencies": "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/release/PodcastSync.build/primary.swiftdeps"
+  },
+  "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/Sources/BackendProcess.swift": {
+    "object": "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/release/PodcastSync.build/BackendProcess.swift.o",
+    "swiftmodule": "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/release/PodcastSync.build/BackendProcess~partial.swiftmodule",
+    "swift-dependencies": "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/release/PodcastSync.build/BackendProcess.swiftdeps",
+    "diagnostics": "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/release/PodcastSync.build/BackendProcess.dia"
+  },
+  "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/Sources/PodcastSyncApp.swift": {
+    "object": "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/release/PodcastSync.build/PodcastSyncApp.swift.o",
+    "swiftmodule": "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/release/PodcastSync.build/PodcastSyncApp~partial.swiftmodule",
+    "swift-dependencies": "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/release/PodcastSync.build/PodcastSyncApp.swiftdeps",
+    "diagnostics": "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/release/PodcastSync.build/PodcastSyncApp.dia"
+  }
+}

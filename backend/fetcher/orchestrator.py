@@ -30,6 +30,7 @@ class FetcherOrchestrator:
     def update_api_key(self, api_key: str) -> None:
         """Update the API key at runtime (e.g. when set via web UI)."""
         if api_key:
+            from backend.fetcher.api_fetcher import YouTubeApiFetcher  # Lazy — google client is heavy
             self.api_fetcher = YouTubeApiFetcher(api_key)
             logger.info("API fetcher updated with new key")
         else:

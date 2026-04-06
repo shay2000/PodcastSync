@@ -1,0 +1,270 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.PodcastSync-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build/sources",
+      "importPath" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/Sources/BackendProcess.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/Sources/PodcastSyncApp.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "PodcastSync",
+      "moduleOutputPath" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/Modules/PodcastSync.swiftmodule",
+      "objects" : [
+        "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build/BackendProcess.swift.o",
+        "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build/PodcastSyncApp.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j8",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "PodcastSync_main",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "podcastsync"
+      ],
+      "outputFileMapPath" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build/BackendProcess.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build/PodcastSyncApp.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/Modules/PodcastSync.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/Sources/BackendProcess.swift",
+        "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/Sources/PodcastSyncApp.swift"
+      ],
+      "tempsPath" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "PodcastSync" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "PodcastSync",
+      "-package-name",
+      "podcastsync",
+      "-c",
+      "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/Sources/BackendProcess.swift",
+      "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/Sources/PodcastSyncApp.swift",
+      "-I",
+      "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j8",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "PodcastSync_main",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "podcastsync",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "PodcastSync" : [
+
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync-entitlement.plist" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<entitlement-plist>"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<com.apple.security.get-task-allow>"
+        }
+      ],
+      "outputFilePath" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync-entitlement.plist"
+    },
+    "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/Sources/BackendProcess.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/Sources/PodcastSyncApp.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build/sources"
+    },
+    "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build/BackendProcess.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.build/PodcastSyncApp.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/PodcastSync.product/Objects.LinkFileList"
+    },
+    "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync/macos/PodcastSync/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

@@ -6,7 +6,13 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
-source venv/bin/activate
+
+# Prefer venv if it has uvicorn; otherwise fall back to system Python locations
+if [ -f "venv/bin/uvicorn" ]; then
+    source venv/bin/activate
+elif [ -f "venv/bin/activate" ]; then
+    source venv/bin/activate
+fi
 
 export PYTHONPATH="$PROJECT_DIR"
 

@@ -2,7 +2,7 @@
 name = "podcastsync"
 version = "0.1.0"
 description = "Turn YouTube channels and playlists into self-hosted podcast feeds"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",

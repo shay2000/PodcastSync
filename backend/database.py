@@ -7,9 +7,11 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Optional
 
+from backend._resources import resource_path
+
 logger = logging.getLogger(__name__)
 
-MIGRATIONS_DIR = Path(__file__).parent / "migrations"
+MIGRATIONS_DIR = resource_path("migrations")
 
 
 class DatabaseManager:
