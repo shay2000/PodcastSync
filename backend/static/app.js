@@ -272,8 +272,18 @@ document.getElementById('sync-all-btn').addEventListener('click', async () => {
 
 async function copyFeedUrl(sourceId) {
     try {
-        const settings = await api('GET', '/api/settings');
-        const url = `${settings.base_url}/feed/${sourceId}.xml`;
+        // If the UI is accessed via a LAN IP, use that — it's already known-good
+        // for other devices. If accessed via localhost, fall back to the server's
+        // detected LAN IP so phone/tablet clients can still reach the feed.
+        const pageOrigin = window.location.origin;
+        const isLocal = pageOrigin.includes('localhost') || pageOrigin.includes('127.0.0.1');
+        let origin = pageOrigin;
+        if (isLocal) {
+            const settings = await api('GET', '/api/settings');
+            origin = settings.base_url;
+        }
+
+        const url = `${origin}/feed/${sourceId}.xml`;
 
         // Show the URL next to the button
         const urlEl = document.getElementById(`feed-url-${sourceId}`);
