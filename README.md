@@ -4,6 +4,8 @@
 ![App Type](https://img.shields.io/badge/app-menu%20bar-0f766e?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-166534?style=flat-square)
 ![Status](https://img.shields.io/badge/status-active-9a3412?style=flat-square)
+![Release](https://img.shields.io/github/v/release/shay2000/PodcastSync?style=flat-square)
+![Downloads](https://img.shields.io/github/downloads/shay2000/PodcastSync/total?style=flat-square)
 
 Turn YouTube channels and playlists into self-hosted podcast feeds.
 
