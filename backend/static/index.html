@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PodcastSync</title>
-    <link rel="stylesheet" href="/style.css?v=2">
+    <link rel="stylesheet" href="/style.css?v=5">
 </head>
 <body>
     <header>
@@ -13,6 +13,7 @@
             <span id="server-status" class="status-dot green"></span>
             <span id="status-text">Connected</span>
             <span id="next-poll"></span>
+            <button id="cancel-downloads-btn" class="btn-danger btn-sm" onclick="cancelDownloads()" hidden>Cancel Downloads</button>
         </div>
     </header>
 
@@ -24,12 +25,13 @@
                 <div class="form-row">
                     <input type="text" id="source-url" placeholder="YouTube channel or playlist URL" required>
                     <input type="text" id="source-name" placeholder="Name (optional)">
-                    <input type="number" id="source-backfill" value="15" min="1" max="500" title="Max past episodes">
+                    <input type="number" id="source-backfill" value="15" min="1" max="50" title="Max past episodes to fetch on first sync">
                     <button type="submit">Add</button>
                 </div>
                 <div class="form-row">
                     <input type="text" id="source-path" placeholder="Download folder (optional, default: ~/PodcastMirror/Name/)">
                     <button type="button" id="browse-source-path" class="btn-secondary btn-sm">Browse…</button>
+                    <input type="number" id="source-keep" min="1" placeholder="Keep last N episodes (optional)" style="width:220px">
                 </div>
                 <div id="add-error" class="error" hidden></div>
             </form>
@@ -64,6 +66,6 @@
         </section>
     </main>
 
-    <script src="/app.js?v=2"></script>
+    <script src="/app.js?v=5"></script>
 </body>
 </html>

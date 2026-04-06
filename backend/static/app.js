@@ -120,6 +120,14 @@ function renderSources() {
                 <button onclick="browseDirectory('path-${s.id}')" class="btn-secondary btn-sm">Browse…</button>
                 <button onclick="savePath(${s.id})" class="btn-secondary btn-sm">Save path</button>
             </div>
+            <div class="source-path-row">
+                <span class="path-label">Keep last:</span>
+                <input type="number" class="keep-input" id="keep-${s.id}" min="1"
+                    value="${s.max_keep_episodes || ''}"
+                    placeholder="∞ (keep all)">
+                <span class="path-label" style="white-space:nowrap">episodes on disk</span>
+                <button onclick="saveKeep(${s.id})" class="btn-secondary btn-sm">Save</button>
+            </div>
             <div class="source-actions">
                 <button onclick="syncSource(${s.id})" class="btn-secondary" style="font-size:12px;padding:4px 10px">Sync Now</button>
                 <button onclick="copyFeedUrl(${s.id})" class="btn-secondary" style="font-size:12px;padding:4px 10px">Copy Feed URL</button>
@@ -154,21 +162,36 @@ async function loadVideos(sourceId) {
         }
 
         container.innerHTML = videos.map(v => {
-            const sizeMB = v.file_size ? `<span class="info-text">${(v.file_size / 1048576).toFixed(1)} MB</span>` : '';
-            const skipBtn = (v.download_status !== 'completed' && v.download_status !== 'skipped')
+            const sizeMB = v.file_size ? `<span class="size-text">${(v.file_size / 1048576).toFixed(1)} MB</span>` : '';
+
+            const isActionable = !['completed', 'skipped', 'deleted', 'downloading'].includes(v.download_status);
+            const skipBtn = isActionable
                 ? `<button onclick="skipVideo(${sourceId}, ${v.id})" class="btn-skip" title="Skip this video">Skip</button>`
                 : '';
             const deleteBtn = v.download_status === 'completed'
-                ? `<button onclick="deleteVideoFile(${sourceId}, ${v.id})" class="btn-delete-file" title="Delete downloaded file">Delete file</button>`
+                ? `<button onclick="deleteVideoFile(${sourceId}, ${v.id})" class="btn-delete-file" title="Delete file (won't auto-re-download)">Delete file</button>`
                 : '';
+            const requeueBtn = (v.download_status === 'deleted' || v.download_status === 'failed')
+                ? `<button onclick="requeueVideo(${sourceId}, ${v.id})" class="btn-requeue" title="Re-queue for download">Re-download</button>`
+                : '';
+
+            const progressBar = v.download_status === 'downloading' ? `
+                <div class="download-progress-bar" id="progress-bar-${v.id}">
+                    <div class="progress-fill" style="width:0%"></div>
+                </div>
+                <div class="progress-info-text" id="progress-info-${v.id}">Downloading…</div>` : '';
+
             return `
             <div class="video-item" id="video-item-${v.id}">
-                <span class="video-title">${esc(v.title)} <span class="info-text">${v.publish_date ? v.publish_date.slice(0, 10) : ''}</span></span>
-                <span class="video-right">
-                    ${sizeMB}
-                    <span class="video-status ${v.download_status}">${v.download_status}</span>
-                    ${skipBtn}${deleteBtn}
-                </span>
+                <div class="video-item-row">
+                    <span class="video-title">${esc(v.title)} <span class="info-text">${v.publish_date ? v.publish_date.slice(0, 10) : ''}</span></span>
+                    <span class="video-right">
+                        ${sizeMB}
+                        <span class="video-status ${v.download_status}">${v.download_status}</span>
+                        ${skipBtn}${deleteBtn}${requeueBtn}
+                    </span>
+                </div>
+                ${progressBar}
             </div>`;
         }).join('');
     } catch (e) {
@@ -190,11 +213,15 @@ document.getElementById('add-source-form').addEventListener('submit', async (e) 
     const maxBackfill = parseInt(document.getElementById('source-backfill').value, 10);
     const customPath = document.getElementById('source-path').value.trim() || null;
 
+    const keepRaw = document.getElementById('source-keep').value.trim();
+    const maxKeep = keepRaw ? parseInt(keepRaw, 10) : null;
+
     try {
-        await api('POST', '/api/sources', { url, name, max_backfill: maxBackfill, custom_storage_path: customPath });
+        await api('POST', '/api/sources', { url, name, max_backfill: maxBackfill, custom_storage_path: customPath, max_keep_episodes: maxKeep });
         document.getElementById('source-url').value = '';
         document.getElementById('source-name').value = '';
         document.getElementById('source-path').value = '';
+        document.getElementById('source-keep').value = '';
         toast('Source added');
         sources = [];  // Force full re-render on next load
         loadSources();
@@ -221,10 +248,11 @@ async function browseDirectory(inputId) {
 
 async function syncSource(id) {
     try {
-        toast('Syncing...');
-        const result = await api('POST', `/api/sources/${id}/sync`);
-        toast(`Found ${result.new_videos} new, downloaded ${result.downloaded}`);
-        sources = [];  // Force full re-render
+        await api('POST', `/api/sources/${id}/sync`);
+        toast('Sync started — downloads will appear below');
+        // Expand the video list so progress bars are visible
+        expandedSourceId = id;
+        sources = [];
         loadSources();
     } catch (e) {
         toast(e.message, 'error');
@@ -233,9 +261,8 @@ async function syncSource(id) {
 
 document.getElementById('sync-all-btn').addEventListener('click', async () => {
     try {
-        toast('Syncing all sources...');
-        const result = await api('POST', '/api/sync-all');
-        toast(`Synced ${result.sources_synced} sources: ${result.new_videos} new, ${result.downloaded} downloaded`);
+        await api('POST', '/api/sync-all');
+        toast('Sync started for all sources');
         sources = [];
         loadSources();
     } catch (e) {
@@ -284,6 +311,17 @@ async function savePath(id) {
     }
 }
 
+async function saveKeep(id) {
+    const raw = document.getElementById(`keep-${id}`).value.trim();
+    const max_keep_episodes = raw ? parseInt(raw, 10) : null;
+    try {
+        await api('PATCH', `/api/sources/${id}`, { max_keep_episodes });
+        toast(max_keep_episodes ? `Will keep last ${max_keep_episodes} episodes` : 'Keep limit removed');
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
 async function skipVideo(sourceId, videoId) {
     try {
         await api('DELETE', `/api/sources/${sourceId}/videos/${videoId}`);
@@ -301,12 +339,22 @@ async function skipVideo(sourceId, videoId) {
 }
 
 async function deleteVideoFile(sourceId, videoId) {
-    if (!confirm('Delete the downloaded MP3? It will re-queue for download.')) return;
+    if (!confirm('Delete the downloaded file? It will NOT be re-downloaded automatically — use "Re-download" to queue it again.')) return;
     try {
         await api('DELETE', `/api/sources/${sourceId}/videos/${videoId}/file`);
         loadVideos(sourceId);
         sources = [];
         loadSources();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function requeueVideo(sourceId, videoId) {
+    try {
+        await api('POST', `/api/sources/${sourceId}/videos/${videoId}/requeue`);
+        toast('Re-queued — will download on next sync');
+        loadVideos(sourceId);
     } catch (e) {
         toast(e.message, 'error');
     }
@@ -373,6 +421,11 @@ async function loadStatus() {
         }
         document.getElementById('next-poll').textContent = pollText;
 
+        const cancelBtn = document.getElementById('cancel-downloads-btn');
+        if (cancelBtn) {
+            cancelBtn.hidden = (status.active_downloads === 0 && status.download_queue_size === 0);
+        }
+
         // Load settings
         const settings = await api('GET', '/api/settings');
         document.getElementById('poll-interval').value = settings.poll_interval_minutes;
@@ -384,8 +437,67 @@ async function loadStatus() {
     }
 }
 
+let _prevProgressIds = new Set();
+let _progressRunning = false;
+
+async function refreshProgress() {
+    if (_progressRunning) return;
+    _progressRunning = true;
+    try {
+        const progress = await api('GET', '/api/downloads/progress');
+        const currentIds = new Set(Object.keys(progress).map(Number));
+
+        const completedSome = [..._prevProgressIds].some(id => !currentIds.has(id));
+        const newStarted = [...currentIds].some(id => !_prevProgressIds.has(id));
+        _prevProgressIds = currentIds;
+
+        // Refresh the video list FIRST (creates/removes progress bar DOM elements),
+        // then paint bars below. Awaiting ensures the DOM is ready before we update it.
+        if ((completedSome || newStarted) && expandedSourceId) {
+            await loadVideos(expandedSourceId);
+            if (completedSome) {
+                sources = [];
+                loadSources();
+            }
+        }
+
+        // Paint / update all visible progress bars
+        for (const [videoDbId, data] of Object.entries(progress)) {
+            const bar = document.getElementById(`progress-bar-${videoDbId}`);
+            const info = document.getElementById(`progress-info-${videoDbId}`);
+            if (!bar) continue;
+            const fill = bar.querySelector('.progress-fill');
+            if (data.total_bytes > 0) {
+                const pct = Math.min(100, (data.downloaded_bytes / data.total_bytes) * 100);
+                fill.style.width = `${pct.toFixed(1)}%`;
+                const dlMB = (data.downloaded_bytes / 1048576).toFixed(1);
+                const totalMB = (data.total_bytes / 1048576).toFixed(1);
+                if (info) info.textContent = `${dlMB} / ${totalMB} MB`;
+            } else if (data.downloaded_bytes > 0) {
+                const dlMB = (data.downloaded_bytes / 1048576).toFixed(1);
+                if (info) info.textContent = `${dlMB} MB downloaded…`;
+            }
+        }
+    } catch (e) {
+        // Non-critical — ignore
+    } finally {
+        _progressRunning = false;
+    }
+}
+
+async function cancelDownloads() {
+    try {
+        await api('POST', '/api/downloads/cancel-all');
+        toast('Downloads cancelled — queued items will not start');
+        loadStatus();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
 // Poll for updates when page is visible
 let pollTimer;
+let progressTimer;
 function startPolling() {
     loadStatus();
     loadSources();
@@ -395,6 +507,9 @@ function startPolling() {
             loadSources();  // Uses refreshSourceMeta when count is unchanged — no flicker
         }
     }, 5000);
+    progressTimer = setInterval(() => {
+        if (!document.hidden) refreshProgress();
+    }, 1000);
 }
 
 document.addEventListener('visibilitychange', () => {

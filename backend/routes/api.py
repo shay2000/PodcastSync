@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from backend.downloader import sync_source
 from backend.fetcher.url_parser import parse_youtube_url
@@ -94,6 +94,7 @@ async def add_source(body: SourceCreate, request: Request) -> dict:
         uploads_playlist_id=uploads_playlist_id,
         custom_storage_path=body.custom_storage_path or None,
         icon_url=icon_url,
+        max_keep_episodes=body.max_keep_episodes,
     )
 
     source = db.get_source(source_id)
@@ -173,7 +174,7 @@ async def skip_video(source_id: int, video_db_id: int, request: Request) -> None
 
 @router.delete("/sources/{source_id}/videos/{video_db_id}/file", status_code=204)
 async def delete_video_file(source_id: int, video_db_id: int, request: Request) -> None:
-    """Delete the downloaded MP3 from disk and reset the video status to pending."""
+    """Delete the downloaded MP3 from disk and mark the video as 'deleted' (won't auto-re-download)."""
     import os
     db = request.app.state.db
     if not db.get_source(source_id):
@@ -186,13 +187,22 @@ async def delete_video_file(source_id: int, video_db_id: int, request: Request) 
             pass  # File already gone — that's fine
 
 
+@router.post("/sources/{source_id}/videos/{video_db_id}/requeue", status_code=204)
+async def requeue_video(source_id: int, video_db_id: int, request: Request) -> None:
+    """Re-queue a deleted or failed video so it will be downloaded on the next sync."""
+    db = request.app.state.db
+    if not db.get_source(source_id):
+        raise HTTPException(status_code=404, detail="Source not found")
+    db.requeue_video(video_db_id)
+
+
 # ---------------------------------------------------------------------------
 # Sync
 # ---------------------------------------------------------------------------
 
-@router.post("/sources/{source_id}/sync")
-async def trigger_sync(source_id: int, request: Request) -> dict:
-    """Manually trigger a sync for one source."""
+@router.post("/sources/{source_id}/sync", status_code=202)
+async def trigger_sync(source_id: int, request: Request, background_tasks: BackgroundTasks) -> dict:
+    """Manually trigger a sync for one source. Returns immediately; sync runs in background."""
     db = request.app.state.db
     source = db.get_source(source_id)
     if not source:
@@ -200,36 +210,49 @@ async def trigger_sync(source_id: int, request: Request) -> dict:
 
     orchestrator = request.app.state.orchestrator
     download_manager = request.app.state.download_manager
+    download_manager.reset_cancel()
 
-    new_videos, downloaded = await sync_source(source_id, db, orchestrator, download_manager)
-    return {"new_videos": new_videos, "downloaded": downloaded}
+    background_tasks.add_task(sync_source, source_id, db, orchestrator, download_manager)
+    return {"status": "started"}
 
 
-@router.post("/sync-all")
-async def trigger_sync_all(request: Request) -> dict:
-    """Trigger sync for all enabled sources."""
+@router.post("/sync-all", status_code=202)
+async def trigger_sync_all(request: Request, background_tasks: BackgroundTasks) -> dict:
+    """Trigger sync for all enabled sources. Returns immediately; syncs run in background."""
     db = request.app.state.db
     orchestrator = request.app.state.orchestrator
     download_manager = request.app.state.download_manager
 
     sources = db.get_enabled_sources()
-    total_new = 0
-    total_downloaded = 0
+    download_manager.reset_cancel()
 
-    for source in sources:
-        try:
-            new_v, dl = await sync_source(source["id"], db, orchestrator, download_manager)
-            total_new += new_v
-            total_downloaded += dl
-        except Exception:
-            logger.exception("Sync failed for source %d", source["id"])
+    async def _run_all():
+        for source in sources:
+            try:
+                await sync_source(source["id"], db, orchestrator, download_manager)
+            except Exception:
+                logger.exception("Sync failed for source %d", source["id"])
 
-    return {"sources_synced": len(sources), "new_videos": total_new, "downloaded": total_downloaded}
+    background_tasks.add_task(_run_all)
+    return {"status": "started", "sources_queued": len(sources)}
 
 
 # ---------------------------------------------------------------------------
 # Status & Settings
 # ---------------------------------------------------------------------------
+
+@router.post("/downloads/cancel-all")
+async def cancel_all_downloads(request: Request) -> dict:
+    """Stop any queued downloads from starting. In-flight downloads finish normally."""
+    request.app.state.download_manager.cancel_all()
+    return {"cancelled": True}
+
+
+@router.get("/downloads/progress")
+async def get_download_progress(request: Request) -> dict:
+    """Return live download progress for all active downloads, keyed by video DB id."""
+    return request.app.state.download_manager.get_progress()
+
 
 @router.get("/status", response_model=StatusResponse)
 async def get_status(request: Request) -> dict:

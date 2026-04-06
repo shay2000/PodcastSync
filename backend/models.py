@@ -15,15 +15,17 @@ from pydantic import BaseModel, Field
 class SourceCreate(BaseModel):
     url: str = Field(..., description="YouTube channel or playlist URL")
     name: str = Field("", description="Custom label (auto-generated if blank)")
-    max_backfill: int = Field(15, ge=1, le=500, description="Max past episodes on first sync")
+    max_backfill: int = Field(15, ge=1, le=50, description="Max past episodes on first sync")
     custom_storage_path: Optional[str] = Field(None, description="Override download folder (absolute path)")
+    max_keep_episodes: Optional[int] = Field(None, ge=1, description="Rolling delete: keep only this many downloaded episodes")
 
 
 class SourceUpdate(BaseModel):
     name: Optional[str] = None
     enabled: Optional[bool] = None
-    max_backfill: Optional[int] = Field(None, ge=1, le=500)
+    max_backfill: Optional[int] = Field(None, ge=1, le=50)
     custom_storage_path: Optional[str] = None
+    max_keep_episodes: Optional[int] = Field(None, ge=1)
 
 
 class SourceResponse(BaseModel):
@@ -40,6 +42,7 @@ class SourceResponse(BaseModel):
     created_at: str
     custom_storage_path: Optional[str] = None
     icon_url: Optional[str] = None
+    max_keep_episodes: Optional[int] = None
 
 
 class VideoResponse(BaseModel):

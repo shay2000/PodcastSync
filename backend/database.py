@@ -113,12 +113,13 @@ class DatabaseManager:
         uploads_playlist_id: str | None = None,
         custom_storage_path: str | None = None,
         icon_url: str | None = None,
+        max_keep_episodes: int | None = None,
     ) -> int:
         cur = self.execute(
             """INSERT INTO sources
-               (name, source_type, youtube_id, url, max_backfill, uploads_playlist_id, custom_storage_path, icon_url)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (name, source_type, youtube_id, url, max_backfill, uploads_playlist_id, custom_storage_path, icon_url),
+               (name, source_type, youtube_id, url, max_backfill, uploads_playlist_id, custom_storage_path, icon_url, max_keep_episodes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (name, source_type, youtube_id, url, max_backfill, uploads_playlist_id, custom_storage_path, icon_url, max_keep_episodes),
         )
         return cur.lastrowid  # type: ignore[return-value]
 
@@ -196,14 +197,31 @@ class DatabaseManager:
         )
 
     def delete_downloaded_file(self, video_db_id: int) -> Optional[str]:
-        """Return the file_path then reset the video to pending (re-downloadable)."""
+        """Return the file_path and mark the video as 'deleted' (won't auto-re-download)."""
         row = self.fetch_one("SELECT file_path FROM videos WHERE id = ?", (video_db_id,))
         file_path = row["file_path"] if row else None
         self.execute(
-            "UPDATE videos SET download_status = 'pending', file_path = NULL, file_size = NULL WHERE id = ?",
+            "UPDATE videos SET download_status = 'deleted', file_path = NULL, file_size = NULL WHERE id = ?",
             (video_db_id,),
         )
         return file_path
+
+    def requeue_video(self, video_db_id: int) -> None:
+        """Reset a deleted/failed video to pending so it will be downloaded on next sync."""
+        self.execute(
+            "UPDATE videos SET download_status = 'pending', file_path = NULL, file_size = NULL, error_message = NULL WHERE id = ?",
+            (video_db_id,),
+        )
+
+    def get_overflow_completed_videos(self, source_id: int, max_keep: int) -> list[sqlite3.Row]:
+        """Return completed videos beyond the keep limit, oldest first (to be rolling-deleted)."""
+        return self.fetch_all(
+            """SELECT * FROM videos
+               WHERE source_id = ? AND download_status = 'completed' AND file_path IS NOT NULL
+               ORDER BY publish_date ASC
+               LIMIT -1 OFFSET ?""",
+            (source_id, max_keep),
+        )
 
     def get_known_video_ids(self, source_id: int) -> set[str]:
         rows = self.fetch_all("SELECT video_id FROM videos WHERE source_id = ?", (source_id,))

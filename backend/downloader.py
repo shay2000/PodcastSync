@@ -53,6 +53,8 @@ class DownloadManager:
         self.ffmpeg_path = ffmpeg_path or find_ffmpeg()
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._active_downloads: int = 0
+        self._progress: dict[int, dict] = {}  # video_db_id -> progress info
+        self._cancel_requested: bool = False
 
         if not self.ffmpeg_path:
             logger.warning(
@@ -65,6 +67,19 @@ class DownloadManager:
     @property
     def active_downloads(self) -> int:
         return self._active_downloads
+
+    def get_progress(self) -> dict:
+        """Return a snapshot of current download progress keyed by video_db_id."""
+        return dict(self._progress)
+
+    def cancel_all(self) -> None:
+        """Stop any pending downloads from starting. In-flight downloads finish normally."""
+        self._cancel_requested = True
+        self._progress.clear()
+
+    def reset_cancel(self) -> None:
+        """Clear the cancel flag so the next sync proceeds normally."""
+        self._cancel_requested = False
 
     def _make_ydl_opts(self, output_dir: Path) -> dict:
         opts: dict = {
@@ -153,7 +168,7 @@ class DownloadManager:
 
             # Run yt-dlp in a thread to avoid blocking the event loop
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._sync_download, url, opts)
+            await loop.run_in_executor(None, self._sync_download, url, opts, video_db_id)
 
             if expected_path.exists():
                 # Embed channel icon as album art (instead of per-video thumbnail)
@@ -187,12 +202,35 @@ class DownloadManager:
         finally:
             self._active_downloads -= 1
 
-    def _sync_download(self, url: str, opts: dict) -> None:
+    def _sync_download(self, url: str, opts: dict, video_db_id: int) -> None:
         """Synchronous yt-dlp download (called via run_in_executor)."""
         import yt_dlp  # Lazy import — yt-dlp takes ~60s to load
 
+        def _progress_hook(d: dict) -> None:
+            if d.get("status") == "downloading":
+                self._progress[video_db_id] = {
+                    "downloaded_bytes": d.get("downloaded_bytes", 0),
+                    "total_bytes": d.get("total_bytes") or d.get("total_bytes_estimate", 0),
+                    "speed": d.get("speed", 0),
+                }
+            elif d.get("status") in ("finished", "error"):
+                self._progress.pop(video_db_id, None)
+
+        opts = {**opts, "progress_hooks": [_progress_hook]}
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
+
+    def _apply_rolling_delete(self, source_id: int, max_keep: int) -> None:
+        """Delete oldest completed files if the source is over its keep limit."""
+        to_delete = self.db.get_overflow_completed_videos(source_id, max_keep)
+        for video in to_delete:
+            if video["file_path"]:
+                try:
+                    os.remove(video["file_path"])
+                    logger.info("Rolling delete: removed %s", video["file_path"])
+                except FileNotFoundError:
+                    pass
+            self.db.update_video_status(video["id"], "deleted")
 
     async def process_pending_downloads(
         self,
@@ -200,6 +238,7 @@ class DownloadManager:
         source_name: str,
         custom_storage_path: Optional[str] = None,
         icon_url: Optional[str] = None,
+        max_keep_episodes: Optional[int] = None,
     ) -> int:
         """Download all pending videos for a source. Returns count of successful downloads."""
         pending = self.db.get_pending_videos(source_id)
@@ -211,7 +250,11 @@ class DownloadManager:
 
         async def _download_one(row):
             nonlocal completed
+            if self._cancel_requested:
+                return
             async with self._semaphore:
+                if self._cancel_requested:
+                    return
                 result = await self.download_video(
                     row["id"], row["video_id"], source_name,
                     custom_storage_path=custom_storage_path,
@@ -219,6 +262,8 @@ class DownloadManager:
                 )
                 if result:
                     completed += 1
+                    if max_keep_episodes:
+                        self._apply_rolling_delete(source_id, max_keep_episodes)
 
         tasks = [_download_one(row) for row in pending]
         await asyncio.gather(*tasks)
@@ -248,8 +293,9 @@ async def sync_source(
 
     # Determine if this is a first sync (no videos in DB yet)
     known_ids = db.get_known_video_ids(source_id)
-    is_first_sync = len(known_ids) == 0
-    max_results = source["max_backfill"] if is_first_sync else None
+    max_backfill = source["max_backfill"]
+    # Cap at 50 to prevent accidentally fetching hundreds; use max_backfill as the limit
+    max_results = min(max_backfill, 50)
 
     # Fetch video metadata
     logger.info("Syncing source %d (%s): %s %s", source_id, source_name, source_type, youtube_id)
@@ -282,6 +328,7 @@ async def sync_source(
         source_id, source_name,
         custom_storage_path=source["custom_storage_path"],
         icon_url=source["icon_url"],
+        max_keep_episodes=source["max_keep_episodes"],
     )
 
     return new_count, downloaded
