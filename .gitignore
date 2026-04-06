@@ -6,6 +6,7 @@ dist/
 build/
 .eggs/
 venv/
+venv.x86_old/
 .venv/
 *.db
 .env
