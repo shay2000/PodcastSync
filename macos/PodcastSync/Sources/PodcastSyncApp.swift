@@ -33,6 +33,27 @@ struct PodcastSyncApp: App {
 
                 Divider()
 
+                Button(action: {
+                    if let url = URL(string: "http://127.0.0.1:\(backend.port)") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        if let ok = backend.cookieStatusOk {
+                            Circle()
+                                .fill(ok ? Color.green : Color.orange)
+                                .frame(width: 7, height: 7)
+                            Text(ok ? "YouTube: Signed in" : "YouTube: Not configured")
+                        } else {
+                            Text("YouTube: Checking…")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .disabled(!backend.isRunning)
+
+                Divider()
+
                 if backend.isRunning {
                     Button("Stop Server") {
                         backend.stop()

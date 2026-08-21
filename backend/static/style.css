@@ -1518,6 +1518,161 @@ input::placeholder {
     }
 }
 
+/* ── YouTube Auth panel ───────────────────────────────────── */
+
+.auth-section {
+    border-radius: 18px;
+    border: 1px solid rgba(37, 32, 37, 0.08);
+    background: rgba(255, 250, 244, 0.7);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.auth-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.auth-section-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--heading);
+}
+
+.auth-global-chip {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.15em 0.55em;
+    border-radius: 99px;
+}
+
+.auth-global-chip.is-ok  { background: rgba(31, 141, 99, 0.12); color: #1d704f; }
+.auth-global-chip.is-err { background: rgba(198, 76, 50, 0.12); color: #8f3524; }
+
+.browser-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.browser-list-placeholder {
+    font-size: 0.85rem;
+    color: var(--text-soft);
+    padding: 0.4rem 0;
+}
+
+.browser-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.45rem 0.65rem;
+    border-radius: 12px;
+    border: 1px solid rgba(37, 32, 37, 0.07);
+    background: rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+}
+
+.browser-row:hover {
+    background: rgba(255, 255, 255, 0.72);
+}
+
+.browser-row.is-selected {
+    background: rgba(36, 73, 131, 0.08);
+    border-color: rgba(36, 73, 131, 0.22);
+}
+
+.browser-row-radio {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(37, 32, 37, 0.22);
+    flex-shrink: 0;
+    transition: border-color var(--transition), background var(--transition);
+}
+
+.browser-row.is-selected .browser-row-radio {
+    border-color: var(--primary);
+    background: var(--primary);
+}
+
+.browser-name {
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.browser-chip {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.15em 0.6em;
+    border-radius: 99px;
+    white-space: nowrap;
+}
+
+.browser-chip.chip-ready            { background: rgba(31, 141, 99, 0.12);   color: #1d704f; }
+.browser-chip.chip-no-cookies       { background: rgba(213, 161, 38, 0.14);  color: #8d6a12; }
+.browser-chip.chip-needs-permission { background: rgba(198, 117, 30, 0.14);  color: #8a5a18; }
+.browser-chip.chip-not-found        { background: rgba(141, 145, 160, 0.12); color: #7a7e8c; }
+
+.auth-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.test-cookies-result {
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.test-cookies-result.is-ok  { color: #1d704f; }
+.test-cookies-result.is-err { color: #8f3524; }
+
+.auth-advanced {
+    font-size: 0.85rem;
+}
+
+.auth-advanced summary {
+    cursor: pointer;
+    color: var(--text-soft);
+    user-select: none;
+    padding: 0.1rem 0;
+}
+
+.auth-advanced-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.55rem;
+}
+
+.error-auth-required {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 0.4rem 0.65rem;
+    border-radius: 10px;
+    background: rgba(213, 140, 45, 0.1);
+    border: 1px solid rgba(213, 140, 45, 0.18);
+    color: #8a5a18;
+    margin-top: 0.25rem;
+}
+
+.error-auth-required a {
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* ── end auth panel ──────────────────────────────────────── */
+
 @media (prefers-color-scheme: dark) {
     input[type="text"],
     input[type="password"],
@@ -1540,6 +1695,48 @@ input::placeholder {
     input::placeholder {
         color: #8e96a9;
         opacity: 0.58;
+    }
+
+    /* Auth panel – dark mode */
+    .auth-section {
+        background: rgba(31, 34, 46, 0.7);
+        border-color: rgba(255, 255, 255, 0.07);
+    }
+
+    .browser-row {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(255, 255, 255, 0.07);
+    }
+
+    .browser-row:hover {
+        background: rgba(255, 255, 255, 0.07);
+    }
+
+    .browser-row.is-selected {
+        background: rgba(36, 73, 131, 0.22);
+        border-color: rgba(95, 145, 220, 0.35);
+    }
+
+    .browser-name {
+        color: var(--heading);
+    }
+
+    .auth-advanced summary {
+        color: var(--text-soft);
+    }
+
+    .browser-chip.chip-ready    { background: rgba(82, 197, 150, 0.16); color: #8be0bb; }
+    .browser-chip.chip-no-cookies { background: rgba(244, 196, 92, 0.14); color: #f2cc7a; }
+    .browser-chip.chip-needs-permission { background: rgba(255, 160, 80, 0.16); color: #ffbe7a; }
+    .browser-chip.chip-not-found  { background: rgba(141, 145, 160, 0.12); color: #888ea0; }
+
+    .test-cookies-result.is-ok  { color: #8be0bb; }
+    .test-cookies-result.is-err { color: #ffaf9d; }
+
+    .error-auth-required {
+        background: rgba(213, 140, 45, 0.12);
+        border-color: rgba(213, 140, 45, 0.22);
+        color: #f2cc7a;
     }
 
     .status-pill,

@@ -72,8 +72,12 @@ class SettingsResponse(BaseModel):
     storage_path: str
     server_port: int
     base_url: str
+    cookies_from_browser: str = ""
+    cookies_file_path: str = ""
 
 
 class SettingsUpdate(BaseModel):
     youtube_api_key: Optional[str] = None
     poll_interval_minutes: Optional[int] = Field(None, ge=1, le=1440)
+    cookies_from_browser: Optional[str] = None
+    cookies_file_path: Optional[str] = None

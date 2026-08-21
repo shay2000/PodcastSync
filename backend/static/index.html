@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=7">
+    <link rel="stylesheet" href="/style.css?v=8">
 </head>
 <body>
     <header class="app-header">
@@ -282,10 +282,40 @@
                 </div>
             </div>
 
+            <div class="auth-section">
+                <div class="auth-section-header">
+                    <span class="auth-section-title">YouTube Authentication</span>
+                    <span class="auth-global-chip" id="auth-global-status" hidden></span>
+                </div>
+                <p class="form-hint">PodcastSync reads your browser's YouTube cookies automatically — just be logged into youtube.com in one of these browsers. No export steps needed.</p>
+
+                <div id="browser-detect-list" class="browser-list">
+                    <div class="browser-list-placeholder">Detecting browsers…</div>
+                </div>
+
+                <div class="auth-actions">
+                    <button id="test-cookies-btn" class="btn-secondary btn-sm" type="button">Test Cookies</button>
+                    <span id="test-cookies-result" class="test-cookies-result" hidden></span>
+                    <button id="refresh-detect-btn" class="btn-ghost-sm" type="button">Refresh</button>
+                </div>
+
+                <details class="auth-advanced">
+                    <summary>Advanced: cookie file</summary>
+                    <div class="auth-advanced-body">
+                        <div class="input-group">
+                            <input type="text" id="cookies-file-path" class="config-input" placeholder="/path/to/cookies.txt">
+                            <button type="button" onclick="browseDirectory('cookies-file-path')" class="btn-ghost-sm">Browse…</button>
+                            <button id="save-cookies-file" class="btn-ghost-sm" type="button">Save</button>
+                        </div>
+                        <p class="form-hint">Netscape-format cookies file path (overrides browser selection above).</p>
+                    </div>
+                </details>
+            </div>
+
             <div id="settings-info" class="settings-info"></div>
         </div>
     </div>
 
-    <script src="/app.js?v=7"></script>
+    <script src="/app.js?v=8"></script>
 </body>
 </html>

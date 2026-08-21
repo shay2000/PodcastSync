@@ -91,8 +91,8 @@ echo "  Embedding bundled Python backend..."
 cp -R "$BACKEND_DIST" "$APP_BUNDLE/Contents/Resources/backend"
 
 echo "=== Bundling ffmpeg and ffprobe ==="
-FFMPEG_BIN="$(command -v ffmpeg || true)"
-FFPROBE_BIN="$(command -v ffprobe || true)"
+FFMPEG_BIN="$(command -v ffmpeg 2>/dev/null || echo /opt/homebrew/bin/ffmpeg)"
+FFPROBE_BIN="$(command -v ffprobe 2>/dev/null || echo /opt/homebrew/bin/ffprobe)"
 TOOLS_ROOT="$APP_BUNDLE/Contents/Resources/tools"
 
 if [ -z "$FFMPEG_BIN" ] || [ -z "$FFPROBE_BIN" ]; then
@@ -138,9 +138,33 @@ PLIST
 
 echo "  .app bundle created at $APP_BUNDLE"
 
-echo "=== Code signing (ad-hoc) ==="
+echo "=== Code signing (ad-hoc, inside-out) ==="
 xattr -cr "$APP_BUNDLE"
-codesign --force --deep --sign - "$APP_BUNDLE" 2>&1
+
+# Sign dylibs first
+find "$APP_BUNDLE" -name "*.dylib" | while read -r f; do
+    codesign --force --sign - "$f" 2>&1 || true
+done
+find "$APP_BUNDLE" -name "*.so" | while read -r f; do
+    codesign --force --sign - "$f" 2>&1 || true
+done
+
+# Sign bundled tool binaries
+codesign --force --sign - "$APP_BUNDLE/Contents/Resources/tools/bin/ffprobe" 2>&1 || true
+codesign --force --sign - "$APP_BUNDLE/Contents/Resources/tools/bin/ffmpeg" 2>&1 || true
+
+# Sign the PyInstaller backend executable
+codesign --force --sign - "$APP_BUNDLE/Contents/Resources/backend/podcastsync-backend" 2>&1 || true
+
+# Strip all resource forks / Finder info before signing the outer bundle.
+# Embedded code signatures survive ditto --norsrc (they live in the binary's
+# __LINKEDIT segment, not in xattrs), so the nested signatures stay intact.
+CLEAN_APP="${APP_BUNDLE}.clean"
+ditto --norsrc "$APP_BUNDLE" "$CLEAN_APP"
+rm -rf "$APP_BUNDLE"
+mv "$CLEAN_APP" "$APP_BUNDLE"
+
+codesign --force --sign - "$APP_BUNDLE" 2>&1
 echo "  Signed."
 
 echo "=== Creating DMG ==="
@@ -163,7 +187,7 @@ hdiutil create \
     -format UDRW \
     "$RW_DMG" 2>&1
 
-MOUNT_POINT="$(hdiutil attach -readwrite -noverify -noautoopen "$RW_DMG" | awk '/\/Volumes\// {print $3; exit}')"
+MOUNT_POINT="$(hdiutil attach -readwrite -noverify -noautoopen "$RW_DMG" | awk -F'\t' '/\/Volumes\// {gsub(/^[ \t]+|[ \t]+$/, "", $NF); print $NF; exit}')"
 if [ -z "$MOUNT_POINT" ]; then
     echo "ERROR: Failed to mount $RW_DMG"
     exit 1

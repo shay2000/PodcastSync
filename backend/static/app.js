@@ -501,9 +501,17 @@ function renderDetailVideos(videos) {
                     <div class="progress-info-text" id="progress-info-${video.id}">Downloading...</div>
                 `
                 : "";
-            const errorMarkup = video.error_message
-                ? `<div class="progress-info-text">${esc(video.error_message)}</div>`
-                : "";
+            let errorMarkup = "";
+            if (video.error_message) {
+                if (video.error_message.startsWith("[AUTH_REQUIRED]")) {
+                    errorMarkup = `<div class="error-auth-required">
+                        ⚠ YouTube requires sign-in —
+                        <a onclick="openSettings(); return false;">configure cookies in Settings</a>
+                    </div>`;
+                } else {
+                    errorMarkup = `<div class="progress-info-text">${esc(video.error_message)}</div>`;
+                }
+            }
 
             return `
                 <article class="episode-card" id="video-item-${video.id}">
@@ -667,6 +675,7 @@ function closeAddOnBackdrop(event) {
 function openSettings() {
     document.getElementById("settings-modal").hidden = false;
     syncModalState();
+    detectBrowserCookies();
 }
 
 function closeSettings() {
@@ -961,6 +970,7 @@ async function loadStatus() {
             status.active_downloads === 0 && status.download_queue_size === 0;
 
         safeSetInputValue("poll-interval", String(settings.poll_interval_minutes));
+        safeSetInputValue("cookies-file-path", settings.cookies_file_path || "");
         document.getElementById("settings-info").textContent =
             `Base URL: ${settings.base_url} • API key: ${settings.youtube_api_key_set ? "set" : "not set"} • Storage: ${settings.storage_path}`;
 
@@ -1126,6 +1136,156 @@ document.getElementById("save-poll-interval").addEventListener("click", async ()
         await loadStatus();
     } catch (error) {
         toast(error.message, "error");
+    }
+});
+
+// ── YouTube Auth panel ────────────────────────────────────────
+
+const BROWSER_LABELS = {
+    chrome: "Chrome", chromium: "Chromium", brave: "Brave",
+    edge: "Edge", opera: "Opera", vivaldi: "Vivaldi",
+    safari: "Safari", firefox: "Firefox",
+};
+
+let _currentBrowserSelection = "";
+
+async function detectBrowserCookies() {
+    const list = document.getElementById("browser-detect-list");
+    if (!list) return;
+    list.innerHTML = `<div class="browser-list-placeholder">Detecting browsers…</div>`;
+
+    let data;
+    try {
+        data = await api("GET", "/api/cookies/detect");
+    } catch {
+        list.innerHTML = `<div class="browser-list-placeholder">Detection failed — check server logs.</div>`;
+        return;
+    }
+
+    const settings = await getSettings();
+    _currentBrowserSelection = settings.cookies_from_browser || "";
+
+    const rows = data.browsers
+        .filter(b => b.available)
+        .map(b => {
+            let chipClass, chipText;
+            if (b.needs_permission) {
+                chipClass = "chip-needs-permission";
+                chipText = "Needs permission";
+            } else if (b.has_youtube_cookies) {
+                chipClass = "chip-ready";
+                chipText = "Cookies ready";
+            } else {
+                chipClass = "chip-no-cookies";
+                chipText = "Not logged in";
+            }
+            const selected = b.name === _currentBrowserSelection;
+            return `
+                <div class="browser-row${selected ? " is-selected" : ""}"
+                     id="browser-row-${b.name}"
+                     onclick="selectCookieBrowser('${b.name}')">
+                    <div class="browser-row-radio"></div>
+                    <span class="browser-name">${BROWSER_LABELS[b.name] || b.name}</span>
+                    <span class="browser-chip ${chipClass}">${chipText}</span>
+                    ${b.needs_permission ? `<span title="Grant Full Disk Access in System Settings → Privacy & Security">ⓘ</span>` : ""}
+                </div>`;
+        });
+
+    const noneSelected = !_currentBrowserSelection;
+    list.innerHTML = `
+        <div class="browser-row${noneSelected ? " is-selected" : ""}"
+             id="browser-row-none"
+             onclick="selectCookieBrowser('')">
+            <div class="browser-row-radio"></div>
+            <span class="browser-name">None</span>
+            <span class="browser-chip chip-not-found">Disabled</span>
+        </div>
+        ${rows.join("")}
+    `;
+
+    if (rows.length === 0 && data.browsers.every(b => !b.available)) {
+        list.innerHTML += `<div class="browser-list-placeholder" style="margin-top:0.35rem">No supported browsers found — use the Advanced option below.</div>`;
+    }
+}
+
+async function selectCookieBrowser(browser) {
+    _currentBrowserSelection = browser;
+
+    // Update visual selection
+    document.querySelectorAll(".browser-row").forEach(row => row.classList.remove("is-selected"));
+    const targetRow = document.getElementById(`browser-row-${browser || "none"}`);
+    if (targetRow) targetRow.classList.add("is-selected");
+
+    try {
+        await api("PATCH", "/api/settings", { cookies_from_browser: browser });
+        settingsCache = null; // invalidate so next getSettings() re-fetches
+        if (browser) {
+            await testCookies(browser);
+        } else {
+            clearTestResult();
+        }
+    } catch (err) {
+        toast(err.message, "error");
+    }
+}
+
+function clearTestResult() {
+    const el = document.getElementById("test-cookies-result");
+    if (!el) return;
+    el.hidden = true;
+    el.textContent = "";
+    el.className = "test-cookies-result";
+}
+
+async function testCookies(browser) {
+    const btn = document.getElementById("test-cookies-btn");
+    const result = document.getElementById("test-cookies-result");
+    if (!result) return;
+
+    result.hidden = false;
+    result.className = "test-cookies-result";
+    result.textContent = "Testing…";
+    if (btn) btn.disabled = true;
+
+    const globalChip = document.getElementById("auth-global-status");
+
+    try {
+        const body = browser ? { browser } : {};
+        const data = await api("POST", "/api/cookies/test", body);
+        if (data.status === "ok") {
+            result.className = "test-cookies-result is-ok";
+            result.textContent = "✓ Working";
+            if (globalChip) { globalChip.hidden = false; globalChip.className = "auth-global-chip is-ok"; globalChip.textContent = "Signed in"; }
+        } else {
+            result.className = "test-cookies-result is-err";
+            result.textContent = `✗ ${data.message || "Failed"}`;
+            if (globalChip) { globalChip.hidden = false; globalChip.className = "auth-global-chip is-err"; globalChip.textContent = "Not working"; }
+        }
+    } catch (err) {
+        result.className = "test-cookies-result is-err";
+        result.textContent = `✗ ${err.message}`;
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+document.getElementById("test-cookies-btn").addEventListener("click", () => {
+    testCookies(_currentBrowserSelection || undefined);
+});
+
+document.getElementById("refresh-detect-btn").addEventListener("click", () => {
+    clearTestResult();
+    detectBrowserCookies();
+});
+
+document.getElementById("save-cookies-file").addEventListener("click", async () => {
+    const filePath = document.getElementById("cookies-file-path").value.trim();
+    try {
+        await api("PATCH", "/api/settings", { cookies_file_path: filePath });
+        toast(filePath ? "Cookie file path saved" : "Cookie file path cleared");
+        settingsCache = null;
+    } catch (err) {
+        toast(err.message, "error");
     }
 });
 

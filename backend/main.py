@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI):
         storage_path=settings.storage_path,
         db=db,
         max_concurrent=settings.max_concurrent_downloads,
+        settings=settings,
     )
 
     # Store on app state for route access

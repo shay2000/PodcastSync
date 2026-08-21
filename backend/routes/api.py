@@ -294,6 +294,8 @@ async def get_settings(request: Request) -> dict:
         "storage_path": str(settings.storage_path),
         "server_port": settings.server_port,
         "base_url": settings.base_url,
+        "cookies_from_browser": settings.cookies_from_browser,
+        "cookies_file_path": settings.cookies_file_path,
     }
 
 
@@ -333,10 +335,111 @@ async def update_settings(body: SettingsUpdate, request: Request) -> dict:
             from backend.scheduler import reschedule_poll
             reschedule_poll(scheduler, settings.poll_interval_minutes)
 
+    if body.cookies_from_browser is not None:
+        settings.cookies_from_browser = body.cookies_from_browser
+        db.set_setting("cookies_from_browser", body.cookies_from_browser)
+
+    if body.cookies_file_path is not None:
+        settings.cookies_file_path = body.cookies_file_path
+        db.set_setting("cookies_file_path", body.cookies_file_path)
+
     return {
         "youtube_api_key_set": bool(settings.youtube_api_key),
         "poll_interval_minutes": settings.poll_interval_minutes,
         "storage_path": str(settings.storage_path),
         "server_port": settings.server_port,
         "base_url": settings.base_url,
+        "cookies_from_browser": settings.cookies_from_browser,
+        "cookies_file_path": settings.cookies_file_path,
     }
+
+
+# ---------------------------------------------------------------------------
+# Cookie detection & validation
+# ---------------------------------------------------------------------------
+
+_KNOWN_BROWSERS = ["chrome", "safari", "firefox", "brave", "chromium", "edge", "opera", "vivaldi"]
+
+# A stable, always-public YouTube video used for cookie validation probes
+_PROBE_VIDEO_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+
+def _probe_browser_cookies(browser: str) -> dict:
+    """Synchronous: try to read cookies for `browser` via yt-dlp. Returns a status dict."""
+    import yt_dlp
+
+    try:
+        opts = {
+            "cookiesfrombrowser": (browser,),
+            "quiet": True,
+            "no_warnings": True,
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            jar = ydl.cookiejar
+            yt_cookies = [c for c in jar if "youtube" in c.domain or "google" in c.domain]
+            return {
+                "name": browser,
+                "available": True,
+                "needs_permission": False,
+                "has_youtube_cookies": len(yt_cookies) > 0,
+            }
+    except Exception as e:
+        err = str(e)
+        if "Operation not permitted" in err or "PermissionError" in err:
+            return {"name": browser, "available": True, "needs_permission": True, "has_youtube_cookies": False}
+        return {"name": browser, "available": False, "needs_permission": False, "has_youtube_cookies": False}
+
+
+@router.get("/cookies/detect")
+async def detect_cookies() -> dict:
+    """Detect which browsers are installed and have YouTube cookies accessible."""
+    loop = asyncio.get_event_loop()
+    results = []
+    for browser in _KNOWN_BROWSERS:
+        result = await loop.run_in_executor(None, _probe_browser_cookies, browser)
+        results.append(result)
+    return {"browsers": results}
+
+
+def _test_cookies_sync(browser: str | None, cookies_file: str | None) -> dict:
+    """Synchronous: probe YouTube with the configured cookies to verify they work."""
+    import yt_dlp
+
+    opts: dict = {
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "skip_download": True,
+        "socket_timeout": 15,
+    }
+    if browser:
+        opts["cookiesfrombrowser"] = (browser,)
+    elif cookies_file:
+        opts["cookiefile"] = cookies_file
+
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.extract_info(_PROBE_VIDEO_URL, download=False)
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)[:300]}
+
+
+@router.post("/cookies/test")
+async def test_cookies(request: Request) -> dict:
+    """Test whether the configured (or specified) cookies work for YouTube downloads."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    settings = request.app.state.settings
+
+    browser = body.get("browser", settings.cookies_from_browser) or None
+    cookies_file = body.get("cookies_file", settings.cookies_file_path) or None
+
+    if not browser and not cookies_file:
+        return {"status": "error", "message": "No browser or cookie file configured"}
+
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, _test_cookies_sync, browser, cookies_file)
+    return result

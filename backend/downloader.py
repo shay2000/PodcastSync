@@ -36,6 +36,20 @@ def _bundled_ffmpeg_candidates() -> list[Path]:
     return candidates
 
 
+def _clear_quarantine(path: str) -> None:
+    """Remove the macOS quarantine xattr so Gatekeeper won't block execution."""
+    if sys.platform != "darwin":
+        return
+    try:
+        import subprocess
+        subprocess.run(
+            ["/usr/bin/xattr", "-d", "com.apple.quarantine", path],
+            check=False, capture_output=True, timeout=5,
+        )
+    except Exception:
+        pass
+
+
 def find_ffmpeg() -> Optional[str]:
     """Locate ffmpeg binary on the system."""
     bundled = os.getenv("PODCASTSYNC_FFMPEG", "").strip()
@@ -68,11 +82,22 @@ class DownloadManager:
         db: DatabaseManager,
         max_concurrent: int = 2,
         ffmpeg_path: Optional[str] = None,
+        settings=None,
     ) -> None:
         self.storage_path = storage_path
         self.db = db
         self.max_concurrent = max_concurrent
         self.ffmpeg_path = ffmpeg_path or find_ffmpeg()
+        self._settings = settings  # live reference so cookie setting changes take effect
+
+        # Clear macOS quarantine so the OS doesn't block ffmpeg/ffprobe when
+        # yt-dlp tries to execute them (happens after installing from a DMG).
+        if self.ffmpeg_path:
+            _clear_quarantine(self.ffmpeg_path)
+            ffprobe = os.path.join(os.path.dirname(self.ffmpeg_path), "ffprobe")
+            if os.path.isfile(ffprobe):
+                _clear_quarantine(ffprobe)
+
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._active_downloads: int = 0
         self._progress: dict[int, dict] = {}  # video_db_id -> progress info
@@ -122,6 +147,13 @@ class DownloadManager:
         }
         if self.ffmpeg_path:
             opts["ffmpeg_location"] = os.path.dirname(self.ffmpeg_path)
+        browser = (self._settings.cookies_from_browser if self._settings else "").strip()
+        if browser:
+            opts["cookiesfrombrowser"] = (browser,)
+        else:
+            cookie_file = (self._settings.cookies_file_path if self._settings else "").strip()
+            if cookie_file and os.path.isfile(cookie_file):
+                opts["cookiefile"] = cookie_file
         return opts
 
     def _get_output_dir(self, source_name: str, custom_storage_path: Optional[str]) -> Path:
@@ -172,8 +204,8 @@ class DownloadManager:
 
         expected_path = output_dir / f"{video_id}.mp3"
 
-        # Skip if already downloaded
-        if expected_path.exists():
+        # Skip if already downloaded (and non-empty)
+        if expected_path.exists() and expected_path.stat().st_size > 0:
             logger.info("Already exists: %s", expected_path)
             self.db.update_video_status(
                 video_db_id, "completed",
@@ -181,6 +213,10 @@ class DownloadManager:
                 file_size=expected_path.stat().st_size,
             )
             return expected_path
+        elif expected_path.exists():
+            # Stale 0-byte file from a previous failed conversion — remove it and retry
+            logger.warning("Removing empty output file, will re-download: %s", expected_path)
+            expected_path.unlink()
 
         self.db.update_video_status(video_db_id, "downloading")
         self._active_downloads += 1
@@ -193,7 +229,7 @@ class DownloadManager:
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self._sync_download, url, opts, video_db_id)
 
-            if expected_path.exists():
+            if expected_path.exists() and expected_path.stat().st_size > 0:
                 # Embed channel icon as album art (instead of per-video thumbnail)
                 if icon_url:
                     try:
@@ -210,11 +246,14 @@ class DownloadManager:
                 logger.info("Downloaded: %s (%d bytes)", expected_path, file_size)
                 return expected_path
             else:
+                # Empty file means ffmpeg conversion failed — clean up and report
+                if expected_path.exists():
+                    expected_path.unlink()
                 self.db.update_video_status(
                     video_db_id, "failed",
-                    error_message="Output file not found after download",
+                    error_message="Audio conversion failed (ffmpeg produced empty output). Check ffmpeg is installed.",
                 )
-                logger.error("Download appeared to succeed but output missing: %s", expected_path)
+                logger.error("ffmpeg produced empty output for %s — is ffmpeg working?", video_id)
                 return None
 
         except Exception as e:
@@ -240,8 +279,15 @@ class DownloadManager:
                 self._progress.pop(video_db_id, None)
 
         opts = {**opts, "progress_hooks": [_progress_hook]}
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([url])
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+        except Exception as exc:
+            msg = str(exc)
+            _auth_keywords = ("Sign in to confirm", "confirm you're not a bot", "login required", "LOGIN_REQUIRED")
+            if any(kw.lower() in msg.lower() for kw in _auth_keywords):
+                raise Exception(f"[AUTH_REQUIRED] {msg}") from exc
+            raise
 
     def _apply_rolling_delete(self, source_id: int, max_keep: int) -> None:
         """Delete oldest completed files if the source is over its keep limit."""
