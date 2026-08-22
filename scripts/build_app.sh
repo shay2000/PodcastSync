@@ -8,6 +8,7 @@ BUILD_DIR="$PROJECT_DIR/build"
 APP_NAME="PodcastSync"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 DMG_PATH="$BUILD_DIR/$APP_NAME.dmg"
+APP_VERSION="${PODCASTSYNC_VERSION:-$(sed -nE 's/^version = "([^"]+)"/\1/p' "$PROJECT_DIR/pyproject.toml" | head -n 1)}"
 ICONSET_DIR="$BUILD_DIR/$APP_NAME.iconset"
 ICON_MASTER_PNG="$BUILD_DIR/$APP_NAME-1024.png"
 ICON_TIFF_DIR="$BUILD_DIR/$APP_NAME.icon-tiff"
@@ -17,6 +18,11 @@ TOOLS_SCRIPT="$SCRIPT_DIR/bundle_macos_tool.sh"
 SWIFT_CACHE_DIR="$BUILD_DIR/swift-cache"
 PREBUILT_APP_BIN="$BUILD_DIR/$APP_NAME.app/Contents/MacOS/$APP_NAME"
 FALLBACK_LAUNCHER_BIN="$BUILD_DIR/$APP_NAME-launcher"
+
+if [ -z "$APP_VERSION" ]; then
+    echo "ERROR: Could not determine PodcastSync version from pyproject.toml."
+    exit 1
+fi
 
 mkdir -p "$BUILD_DIR"
 mkdir -p "$SWIFT_CACHE_DIR/clang" "$SWIFT_CACHE_DIR/swiftpm"
@@ -104,7 +110,7 @@ rm -rf "$TOOLS_ROOT"
 "$TOOLS_SCRIPT" "$FFMPEG_BIN" "$TOOLS_ROOT"
 "$TOOLS_SCRIPT" "$FFPROBE_BIN" "$TOOLS_ROOT"
 
-cat > "$APP_BUNDLE/Contents/Info.plist" << 'PLIST'
+cat > "$APP_BUNDLE/Contents/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -117,9 +123,9 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << 'PLIST'
     <key>CFBundleDisplayName</key>
     <string>PodcastSync</string>
     <key>CFBundleVersion</key>
-    <string>0.1.0</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundleExecutable</key>
     <string>PodcastSync</string>
     <key>CFBundleIconFile</key>
