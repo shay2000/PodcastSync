@@ -9,7 +9,7 @@ on:
       release_tag:
         description: Existing GitHub release tag to update
         required: true
-        default: v0.1.0
+        default: v0.2.0
         type: string
       source_ref:
         description: Git ref to build; defaults to the ref used to start this workflow
@@ -67,6 +67,9 @@ jobs:
           for tool in swift hdiutil SetFile Rez DeRez tiffutil tiff2icns; do
             command -v "$tool"
           done
+
+      - name: Set bundle version
+        run: echo "PODCASTSYNC_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
 
       - name: Build app and DMG
         run: ./scripts/build_app.sh

@@ -1,6 +1,6 @@
 [project]
 name = "podcastsync"
-version = "0.1.0"
+version = "0.2.0"
 description = "Turn YouTube channels and playlists into self-hosted podcast feeds"
 requires-python = ">=3.10"
 dependencies = [
