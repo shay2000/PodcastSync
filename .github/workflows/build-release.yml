@@ -89,10 +89,16 @@ jobs:
             build/PodcastSync.dmg.sha256
           if-no-files-found: error
 
-      - name: Verify target release
+      - name: Ensure target release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release view "$RELEASE_TAG" >/dev/null
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --verify-tag \
+              --title "PodcastSync $RELEASE_TAG" \
+              --generate-notes
+          fi
 
       - name: Replace release DMG
         env:
