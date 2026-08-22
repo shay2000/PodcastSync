@@ -85,12 +85,14 @@ class BackendProcess: ObservableObject {
         proc.standardOutput = stdoutPipe
         proc.standardError = stderrPipe
 
-        proc.terminationHandler = { [weak self] _ in
+        let backend = self
+        proc.terminationHandler = { [weak backend] _ in
+            guard let backend else { return }
             Task { @MainActor in
-                self?.isRunning = false
-                self?.statusText = "Stopped"
-                self?.statusIcon = "antenna.radiowaves.left.and.right"
-                self?.healthCheckTimer?.invalidate()
+                backend.isRunning = false
+                backend.statusText = "Stopped"
+                backend.statusIcon = "antenna.radiowaves.left.and.right"
+                backend.healthCheckTimer?.invalidate()
             }
         }
 
@@ -117,7 +119,8 @@ class BackendProcess: ObservableObject {
         proc.terminate()
 
         // Wait briefly, then force kill if needed
-        DispatchQueue.global().async { [weak self] in
+        let backend = self
+        DispatchQueue.global().async { [weak backend] in
             let deadline = Date().addingTimeInterval(5)
             while proc.isRunning && Date() < deadline {
                 Thread.sleep(forTimeInterval: 0.1)
@@ -125,10 +128,11 @@ class BackendProcess: ObservableObject {
             if proc.isRunning {
                 proc.interrupt()
             }
+            guard let backend else { return }
             Task { @MainActor in
-                self?.process = nil
-                self?.isRunning = false
-                self?.statusText = "Stopped"
+                backend.process = nil
+                backend.isRunning = false
+                backend.statusText = "Stopped"
             }
         }
     }
@@ -144,9 +148,11 @@ class BackendProcess: ObservableObject {
     // MARK: - Health Check
 
     private func startHealthCheck() {
-        healthCheckTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+        let backend = self
+        healthCheckTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak backend] _ in
+            guard let backend else { return }
             Task { @MainActor in
-                await self?.checkHealth()
+                await backend.checkHealth()
             }
         }
     }
