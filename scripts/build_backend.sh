@@ -49,6 +49,20 @@ PYINSTALLER_CONFIG_DIR="$PYINSTALLER_CONFIG_DIR" \
     --hidden-import backend.routes.api \
     --hidden-import backend.routes.feeds \
     --hidden-import backend.routes.audio \
+    --hidden-import backend.routes.sources \
+    --hidden-import backend.routes.videos \
+    --hidden-import backend.routes.sync \
+    --hidden-import backend.routes.status \
+    --hidden-import backend.routes.settings \
+    --hidden-import backend.routes.cookies \
+    --hidden-import backend.services.sources \
+    --hidden-import backend.services.sync \
+    --hidden-import backend.services.cookies \
+    --hidden-import backend.services.paths \
+    --hidden-import backend.downloader \
+    --hidden-import backend.downloader.ffmpeg \
+    --hidden-import backend.downloader.manager \
+    --hidden-import backend.downloader.artwork \
     --hidden-import backend.fetcher.api_fetcher \
     --hidden-import backend.fetcher.rss_fetcher \
     --hidden-import backend.fetcher.orchestrator \

@@ -1,0 +1,17 @@
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 1.4rem;
+    background: rgba(20, 19, 28, 0.42);
+    backdrop-filter: blur(12px);
+    z-index: 20;
+}
+
+.modal-box {
+    width: min(720px, calc(100vw - 28px));
+    padding: 1.25rem;
+    border-radius: 26px;
+    box-shadow: var(--shadow-lg);
+}

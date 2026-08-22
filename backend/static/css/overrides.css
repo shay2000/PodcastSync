@@ -1,0 +1,7 @@
+/*
+ * The original stylesheet was written as one source-ordered cascade. Keep it
+ * as the last compatibility layer while the named component files above are
+ * adopted incrementally; this preserves every late-wins selector during the
+ * structural refactor and avoids a visual behavior change.
+ */
+@import url("../style.css");
