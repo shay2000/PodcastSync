@@ -37,6 +37,8 @@ class Settings:
     poll_interval_minutes: int = 30
     max_concurrent_downloads: int = 2
     lan_ip: str = field(default_factory=_get_lan_ip)
+    cookies_from_browser: str = ""  # e.g. "chrome", "safari", "firefox"
+    cookies_file_path: str = ""    # path to a Netscape-format cookie file (advanced)
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -62,6 +64,10 @@ class Settings:
             self.storage_path = Path(db_settings["storage_path"])
         if "max_concurrent_downloads" in db_settings:
             self.max_concurrent_downloads = int(db_settings["max_concurrent_downloads"])
+        if "cookies_from_browser" in db_settings:
+            self.cookies_from_browser = db_settings["cookies_from_browser"]
+        if "cookies_file_path" in db_settings:
+            self.cookies_file_path = db_settings["cookies_file_path"]
 
     @property
     def base_url(self) -> str:

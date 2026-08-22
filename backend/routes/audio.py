@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
-from backend.downloader import sanitize_filename
+from backend.services.paths import resolve_audio_path
 
 router = APIRouter()
 
@@ -25,8 +25,9 @@ async def serve_audio(source_id: int, filename: str, request: Request) -> FileRe
     if not source:
         raise HTTPException(status_code=404, detail="Source not found")
 
-    safe_name = sanitize_filename(source["name"])
-    file_path = settings.storage_path / safe_name / filename
+    file_path = resolve_audio_path(db, source, filename, settings)
+    if file_path is None:
+        raise HTTPException(status_code=404, detail="Audio file not found")
 
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="Audio file not found")

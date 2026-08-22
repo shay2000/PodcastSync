@@ -11,9 +11,10 @@ from fastapi.staticfiles import StaticFiles
 from backend._resources import resource_path
 from backend.config import Settings
 from backend.database import DatabaseManager
-from backend.downloader import DownloadManager, sync_source
+from backend.downloader import DownloadManager
 from backend.fetcher.orchestrator import FetcherOrchestrator
 from backend.scheduler import create_scheduler
+from backend.services.sync import sync_all_sources
 from backend.routes.api import router as api_router
 from backend.routes.feeds import router as feeds_router
 from backend.routes.audio import router as audio_router
@@ -43,6 +44,7 @@ async def lifespan(app: FastAPI):
         storage_path=settings.storage_path,
         db=db,
         max_concurrent=settings.max_concurrent_downloads,
+        settings=settings,
     )
 
     # Store on app state for route access
@@ -54,12 +56,7 @@ async def lifespan(app: FastAPI):
     # Set up scheduler
     async def poll_all_sources():
         logger.info("Scheduled poll starting...")
-        sources = db.get_enabled_sources()
-        for source in sources:
-            try:
-                await sync_source(source["id"], db, orchestrator, download_manager)
-            except Exception:
-                logger.exception("Scheduled sync failed for source %d", source["id"])
+        await sync_all_sources(db, orchestrator, download_manager)
         logger.info("Scheduled poll complete")
 
     scheduler = create_scheduler(settings.poll_interval_minutes, poll_all_sources)

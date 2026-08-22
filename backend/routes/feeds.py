@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
 from backend.rss_generator import generate_feed
+from backend.services.sources import source_dto
 
 router = APIRouter()
 
@@ -14,7 +15,6 @@ router = APIRouter()
 async def get_feed(source_id: int, request: Request) -> Response:
     """Serve the podcast RSS feed for a specific source."""
     db = request.app.state.db
-    settings = request.app.state.settings
 
     source = db.get_source(source_id)
     if not source:
@@ -37,19 +37,19 @@ async def get_feed(source_id: int, request: Request) -> Response:
 async def list_feeds(request: Request) -> list[dict]:
     """List all available feeds with their URLs."""
     db = request.app.state.db
-    settings = request.app.state.settings
 
     base_url = str(request.base_url).rstrip("/")
     sources = db.get_all_sources()
     feeds = []
     for s in sources:
+        dto = source_dto(db, s)
         feeds.append({
-            "id": s["id"],
-            "name": s["name"],
-            "source_type": s["source_type"],
-            "enabled": bool(s["enabled"]),
-            "feed_url": f"{base_url}/feed/{s['id']}.xml",
-            "video_count": db.get_video_count(s["id"]),
-            "completed_count": db.get_completed_count(s["id"]),
+            "id": dto["id"],
+            "name": dto["name"],
+            "source_type": dto["source_type"],
+            "enabled": dto["enabled"],
+            "feed_url": f"{base_url}/feed/{dto['id']}.xml",
+            "video_count": dto["video_count"],
+            "completed_count": dto["completed_count"],
         })
     return feeds

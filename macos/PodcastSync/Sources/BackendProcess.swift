@@ -6,6 +6,7 @@ class BackendProcess: ObservableObject {
     @Published var isRunning = false
     @Published var statusText = "Starting..."
     @Published var statusIcon = "antenna.radiowaves.left.and.right"
+    @Published var cookieStatusOk: Bool? = nil   // nil = unknown, true = ok, false = not configured / failing
 
     let port: Int
 
@@ -13,6 +14,7 @@ class BackendProcess: ObservableObject {
     private var healthCheckTimer: Timer?
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
+    private var healthCheckCount = 0
 
     var statusColor: Color {
         isRunning ? .green : .red
@@ -40,6 +42,17 @@ class BackendProcess: ObservableObject {
         let bundledToolsPath = "\(bundlePath)/tools/bin"
         let bundledFFmpegPath = "\(bundledToolsPath)/ffmpeg"
         let uvicornPath = findUvicorn()
+
+        // Clear macOS quarantine from bundled binaries so Gatekeeper allows them to run.
+        // This is needed when the app is installed from a downloaded DMG.
+        let quarantineTargets = [backendPath, bundledFFmpegPath, "\(bundledToolsPath)/ffprobe"]
+        for target in quarantineTargets {
+            let xattr = Process()
+            xattr.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
+            xattr.arguments = ["-d", "com.apple.quarantine", target]
+            try? xattr.run()
+            xattr.waitUntilExit()
+        }
 
         if FileManager.default.isExecutableFile(atPath: bundledFFmpegPath) {
             env["PODCASTSYNC_FFMPEG"] = bundledFFmpegPath
@@ -146,6 +159,11 @@ class BackendProcess: ObservableObject {
                 isRunning = true
                 statusText = "Running on port \(port)"
                 statusIcon = "antenna.radiowaves.left.and.right"
+                // Check cookie status once on first healthy response, then every ~60s
+                healthCheckCount += 1
+                if healthCheckCount == 1 || healthCheckCount % 20 == 0 {
+                    await checkCookieStatus()
+                }
             } else {
                 isRunning = false
                 statusText = "Not responding"
@@ -159,6 +177,23 @@ class BackendProcess: ObservableObject {
                 isRunning = false
                 statusText = "Stopped"
             }
+        }
+    }
+
+    private func checkCookieStatus() async {
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/cookies/test") else { return }
+        var request = URLRequest(url: url, timeoutInterval: 20)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Data("{}".utf8)
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let status = json["status"] as? String {
+                cookieStatusOk = (status == "ok")
+            }
+        } catch {
+            // Non-fatal: leave cookieStatusOk as-is
         }
     }
 

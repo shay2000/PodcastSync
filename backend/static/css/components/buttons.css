@@ -1,0 +1,43 @@
+button,
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-ghost-sm,
+.btn-sync-all,
+.btn-danger-sm,
+.btn-stop,
+.btn-icon,
+.btn-close-detail,
+.btn-close-modal {
+    transition:
+        transform var(--transition),
+        opacity var(--transition),
+        box-shadow var(--transition),
+        border-color var(--transition),
+        background-color var(--transition),
+        color var(--transition);
+}
+
+.btn-primary,
+.btn-sync-all {
+    color: #fff8f2;
+    background: linear-gradient(135deg, #18335f 0%, #10264c 100%);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-sync-all,
+.btn-danger-sm,
+.btn-ghost-sm {
+    padding: 0.78rem 1rem;
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+.btn-primary:hover,
+.btn-sync-all:hover,
+.btn-stop:hover {
+    transform: translateY(-1px);
+}

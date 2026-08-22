@@ -237,3 +237,15 @@ class DatabaseManager:
             (source_id,),
         )
         return row["cnt"] if row else 0
+
+    def get_last_poll_time(self) -> Optional[str]:
+        """Return the most recent source poll timestamp, if any."""
+        row = self.fetch_one("SELECT MAX(last_polled_at) as lp FROM sources")
+        return row["lp"] if row and row["lp"] else None
+
+    def count_pending_videos(self) -> int:
+        """Return the number of videos waiting to be downloaded."""
+        row = self.fetch_one(
+            "SELECT COUNT(*) as cnt FROM videos WHERE download_status = 'pending'"
+        )
+        return row["cnt"] if row else 0

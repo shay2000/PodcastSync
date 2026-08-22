@@ -40,12 +40,16 @@ Recent work completed:
 
 ## Key files
 - `backend/main.py`: FastAPI entrypoint
-- `backend/downloader.py`: download pipeline and ffmpeg discovery
-- `backend/routes/api.py`: sources, sync, settings, status API
+- `backend/services/`: source creation, sync orchestration, cookie probing, and path helpers
+- `backend/downloader/`: download manager, ffmpeg discovery, and MP3 artwork helpers
+- `backend/routes/api.py`: thin `/api` route aggregator
+- `backend/routes/`: source, video, sync, status, settings, and cookie API routes
 - `backend/routes/feeds.py`: RSS feed routes
 - `backend/static/index.html`: frontend shell
-- `backend/static/style.css`: frontend styling
-- `backend/static/app.js`: frontend logic
+- `backend/static/js/main.js`: frontend entrypoint and delegated event wiring
+- `backend/static/js/`: frontend API, store, render, action, modal, and polling modules
+- `backend/static/css/main.css`: frontend stylesheet entrypoint
+- `backend/static/css/`: token, base, layout, and component styles
 - `backend/static/app-icon.svg`: shared app/browser icon source
 - `macos/PodcastSync/Sources/PodcastSyncApp.swift`: menu bar app UI
 - `macos/PodcastSync/Sources/BackendProcess.swift`: backend process startup
@@ -68,6 +72,19 @@ brew install ffmpeg
 Then open:
 
 - `http://127.0.0.1:8642`
+
+## Running tests
+
+Install the optional development dependencies into the project environment, then run:
+
+```bash
+source venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m pytest tests/ -q
+```
+
+The characterization suite is offline: it uses temporary SQLite/storage paths and
+replaces the YouTube fetcher and download manager after application startup.
 
 ## Build packaged app
 ```bash

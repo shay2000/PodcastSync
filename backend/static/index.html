@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=7">
+    <link rel="stylesheet" href="/css/main.css?v=9">
 </head>
 <body>
     <header class="app-header">
@@ -31,7 +31,7 @@
                 <span id="status-text">Connecting...</span>
             </div>
             <span id="next-poll" class="poll-info"></span>
-            <button id="cancel-downloads-btn" class="btn-stop" onclick="cancelDownloads()" hidden>
+            <button id="cancel-downloads-btn" class="btn-stop" data-action="cancel-downloads" hidden>
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <rect x="4" y="4" width="16" height="16" rx="2"/>
                 </svg>
@@ -40,13 +40,13 @@
         </div>
 
         <div class="header-actions">
-            <button class="btn-icon" type="button" onclick="openSettings()" title="Settings" aria-label="Open settings">
+            <button class="btn-icon" type="button" data-action="open-settings" title="Settings" aria-label="Open settings">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <circle cx="12" cy="12" r="3"/>
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                 </svg>
             </button>
-            <button class="btn-primary" type="button" onclick="openAddSource()">
+            <button class="btn-primary" type="button" data-action="open-add-source">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
                     <line x1="12" y1="5" x2="12" y2="19"/>
                     <line x1="5" y1="12" x2="19" y2="12"/>
@@ -88,7 +88,7 @@
                     </div>
                     <h3 class="empty-title">No podcasts yet</h3>
                     <p class="empty-sub">Attach a YouTube channel or playlist to start building your library.</p>
-                    <button class="btn-primary" type="button" onclick="openAddSource()">Add Your First Source</button>
+                    <button class="btn-primary" type="button" data-action="open-add-source">Add Your First Source</button>
                 </div>
             </section>
 
@@ -108,7 +108,7 @@
                         </div>
 
                         <div class="detail-actions-row">
-                            <button type="button" onclick="syncDetailSource()" class="btn-primary btn-sm">
+                            <button type="button" data-action="sync-detail-source" class="btn-primary btn-sm">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <polyline points="1 4 1 10 7 10"/>
                                     <polyline points="23 20 23 14 17 14"/>
@@ -116,10 +116,10 @@
                                 </svg>
                                 Sync Now
                             </button>
-                            <button type="button" onclick="copyDetailFeedUrl()" class="btn-secondary btn-sm">Copy RSS</button>
-                            <button type="button" onclick="openDetailTab('settings')" id="detail-settings-btn" class="btn-secondary btn-sm">Settings</button>
-                            <button type="button" onclick="deleteDetailSource()" class="btn-danger-sm">Delete</button>
-                            <button type="button" onclick="closeDetail()" class="btn-close-detail" title="Close panel" aria-label="Close panel">
+                            <button type="button" data-action="copy-detail-feed-url" class="btn-secondary btn-sm">Copy RSS</button>
+                            <button type="button" data-action="open-detail-tab" data-tab="settings" id="detail-settings-btn" class="btn-secondary btn-sm">Settings</button>
+                            <button type="button" data-action="delete-detail-source" class="btn-danger-sm">Delete</button>
+                            <button type="button" data-action="close-detail" class="btn-close-detail" title="Close panel" aria-label="Close panel">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                                     <line x1="18" y1="6" x2="6" y2="18"/>
                                     <line x1="6" y1="6" x2="18" y2="18"/>
@@ -134,8 +134,8 @@
                             <p>This removes the source and its tracked videos from PodcastSync.</p>
                         </div>
                         <div class="detail-delete-actions">
-                            <button type="button" onclick="cancelDetailDelete()" class="btn-ghost-sm">Cancel</button>
-                            <button type="button" onclick="confirmDeleteDetailSource()" class="btn-danger-sm">Delete Source</button>
+                            <button type="button" data-action="cancel-detail-delete" class="btn-ghost-sm">Cancel</button>
+                            <button type="button" data-action="confirm-delete-detail-source" class="btn-danger-sm">Delete Source</button>
                         </div>
                     </div>
 
@@ -164,8 +164,8 @@
                                 <label class="config-label" for="detail-path">Download folder</label>
                                 <div class="config-control">
                                     <input type="text" id="detail-path" class="config-input" placeholder="Default ~/PodcastMirror/Name/">
-                                    <button type="button" onclick="browseDirectory('detail-path')" class="btn-ghost-sm">Browse...</button>
-                                    <button type="button" onclick="saveDetailPath()" class="btn-ghost-sm">Save</button>
+                                    <button type="button" data-action="browse-directory" data-input-id="detail-path" class="btn-ghost-sm">Browse...</button>
+                                    <button type="button" data-action="save-detail-path" class="btn-ghost-sm">Save</button>
                                 </div>
                             </div>
 
@@ -174,7 +174,7 @@
                                 <div class="config-control">
                                     <input type="number" id="detail-keep" class="config-input config-input-sm" min="1" placeholder="All">
                                     <span class="config-unit">episodes</span>
-                                    <button type="button" onclick="saveDetailKeep()" class="btn-ghost-sm">Save</button>
+                                    <button type="button" data-action="save-detail-keep" class="btn-ghost-sm">Save</button>
                                 </div>
                             </div>
 
@@ -182,7 +182,7 @@
                                 <label class="config-label" for="detail-enabled">Availability</label>
                                 <div class="config-control">
                                     <label class="toggle-wrap">
-                                        <input type="checkbox" id="detail-enabled" onchange="saveDetailEnabled()">
+                                        <input type="checkbox" id="detail-enabled" data-action="save-detail-enabled">
                                         <span class="toggle-slider"></span>
                                         <span class="toggle-label-text" id="detail-enabled-text">Enabled</span>
                                     </label>
@@ -195,14 +195,14 @@
         </div>
     </main>
 
-    <div id="add-modal" class="modal-overlay" hidden onclick="closeAddOnBackdrop(event)">
+    <div id="add-modal" class="modal-overlay" data-action="close-add-backdrop" hidden>
         <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
             <div class="modal-header">
                 <div>
                     <p class="modal-kicker">New Podcast Source</p>
                     <h3 id="add-modal-title">Add YouTube Source</h3>
                 </div>
-                <button type="button" onclick="closeAddSource()" class="btn-close-modal" aria-label="Close add source">
+                <button type="button" data-action="close-add-source" class="btn-close-modal" aria-label="Close add source">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                         <line x1="18" y1="6" x2="6" y2="18"/>
                         <line x1="6" y1="6" x2="18" y2="18"/>
@@ -236,28 +236,28 @@
                     <label for="source-path">Download folder <span class="optional">optional</span></label>
                     <div class="input-group">
                         <input type="text" id="source-path" placeholder="~/PodcastMirror/Name/">
-                        <button type="button" id="browse-source-path" class="btn-ghost-sm">Browse...</button>
+                        <button type="button" id="browse-source-path" data-action="browse-directory" data-input-id="source-path" class="btn-ghost-sm">Browse...</button>
                     </div>
                 </div>
 
                 <div id="add-error" class="form-error" hidden></div>
 
                 <div class="form-actions">
-                    <button type="button" onclick="closeAddSource()" class="btn-ghost">Cancel</button>
+                    <button type="button" data-action="close-add-source" class="btn-ghost">Cancel</button>
                     <button type="submit" class="btn-primary">Add Source</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div id="settings-modal" class="modal-overlay" hidden onclick="closeSettingsOnBackdrop(event)">
+    <div id="settings-modal" class="modal-overlay" data-action="close-settings-backdrop" hidden>
         <div class="modal-box settings-box" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
             <div class="modal-header">
                 <div>
                     <p class="modal-kicker">App Controls</p>
                     <h3 id="settings-modal-title">Settings</h3>
                 </div>
-                <button type="button" onclick="closeSettings()" class="btn-close-modal" aria-label="Close settings">
+                <button type="button" data-action="close-settings" class="btn-close-modal" aria-label="Close settings">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                         <line x1="18" y1="6" x2="6" y2="18"/>
                         <line x1="6" y1="6" x2="18" y2="18"/>
@@ -269,7 +269,7 @@
                 <label for="api-key">YouTube API Key</label>
                 <div class="input-group">
                     <input type="password" id="api-key" placeholder="AIza...">
-                    <button id="save-api-key" class="btn-primary btn-sm" type="button">Save</button>
+                    <button id="save-api-key" data-action="save-api-key" class="btn-primary btn-sm" type="button">Save</button>
                 </div>
             </div>
 
@@ -278,14 +278,44 @@
                 <div class="input-group">
                     <input type="number" id="poll-interval" min="1" max="1440">
                     <span class="config-unit">minutes</span>
-                    <button id="save-poll-interval" class="btn-primary btn-sm" type="button">Save</button>
+                    <button id="save-poll-interval" data-action="save-poll-interval" class="btn-primary btn-sm" type="button">Save</button>
                 </div>
+            </div>
+
+            <div class="auth-section">
+                <div class="auth-section-header">
+                    <span class="auth-section-title">YouTube Authentication</span>
+                    <span class="auth-global-chip" id="auth-global-status" hidden></span>
+                </div>
+                <p class="form-hint">PodcastSync reads your browser's YouTube cookies automatically — just be logged into youtube.com in one of these browsers. No export steps needed.</p>
+
+                <div id="browser-detect-list" class="browser-list">
+                    <div class="browser-list-placeholder">Detecting browsers…</div>
+                </div>
+
+                <div class="auth-actions">
+                    <button id="test-cookies-btn" data-action="test-cookies" class="btn-secondary btn-sm" type="button">Test Cookies</button>
+                    <span id="test-cookies-result" class="test-cookies-result" hidden></span>
+                    <button id="refresh-detect-btn" data-action="refresh-detect" class="btn-ghost-sm" type="button">Refresh</button>
+                </div>
+
+                <details class="auth-advanced">
+                    <summary>Advanced: cookie file</summary>
+                    <div class="auth-advanced-body">
+                        <div class="input-group">
+                            <input type="text" id="cookies-file-path" class="config-input" placeholder="/path/to/cookies.txt">
+                            <button type="button" data-action="browse-directory" data-input-id="cookies-file-path" class="btn-ghost-sm">Browse…</button>
+                            <button id="save-cookies-file" data-action="save-cookies-file" class="btn-ghost-sm" type="button">Save</button>
+                        </div>
+                        <p class="form-hint">Netscape-format cookies file path (overrides browser selection above).</p>
+                    </div>
+                </details>
             </div>
 
             <div id="settings-info" class="settings-info"></div>
         </div>
     </div>
 
-    <script src="/app.js?v=7"></script>
+    <script type="module" src="/js/main.js?v=9"></script>
 </body>
 </html>

@@ -1,0 +1,20 @@
+.episodes-section {
+    padding: 1rem;
+}
+
+.episode-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.episode-card,
+.episode-empty,
+.episode-loading {
+    padding: 1rem;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.86);
+    border: 1px solid rgba(40, 34, 40, 0.08);
+}

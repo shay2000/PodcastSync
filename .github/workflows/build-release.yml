@@ -1,0 +1,97 @@
+name: Build and publish macOS release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing GitHub release tag to update
+        required: true
+        default: v0.1.0
+        type: string
+      source_ref:
+        description: Git ref to build; defaults to the ref used to start this workflow
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    # macos-14 is the hosted arm64 runner, matching the native macOS app and
+    # the arm64 PyInstaller bundle produced by the checked-in build scripts.
+    runs-on: macos-14
+
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: Install Python dependencies
+        run: |
+          python -m venv venv
+          venv/bin/python -m pip install --upgrade pip
+          venv/bin/python -m pip install -r requirements.txt
+          venv/bin/python -m pip install -e ".[dev]"
+
+      - name: Install media tools
+        run: |
+          if ! brew list --versions ffmpeg >/dev/null 2>&1; then
+            brew install ffmpeg
+          fi
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
+      - name: Run characterization tests
+        run: venv/bin/python -m pytest tests/ -q
+
+      - name: Verify macOS packaging tools
+        run: |
+          for tool in swift hdiutil SetFile Rez DeRez tiffutil tiff2icns; do
+            command -v "$tool"
+          done
+
+      - name: Build app and DMG
+        run: ./scripts/build_app.sh
+
+      - name: Verify DMG
+        run: |
+          test -s build/PodcastSync.dmg
+          hdiutil imageinfo build/PodcastSync.dmg >/dev/null
+          shasum -a 256 build/PodcastSync.dmg | tee build/PodcastSync.dmg.sha256
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PodcastSync-${{ env.RELEASE_TAG }}
+          path: |
+            build/PodcastSync.dmg
+            build/PodcastSync.dmg.sha256
+          if-no-files-found: error
+
+      - name: Verify target release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "$RELEASE_TAG" >/dev/null
+
+      - name: Replace release DMG
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$RELEASE_TAG" build/PodcastSync.dmg build/PodcastSync.dmg.sha256 --clobber

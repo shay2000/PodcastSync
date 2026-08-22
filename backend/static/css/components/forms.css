@@ -1,0 +1,22 @@
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-bottom: 0.9rem;
+}
+
+.form-row-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.input-group input {
+    flex: 1;
+}
