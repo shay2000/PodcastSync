@@ -38,11 +38,11 @@ else
     echo "  Install with: brew install ffmpeg"
 fi
 
-# Check Python
-if command -v python3.11 &> /dev/null; then
-    echo "✓ python3.11: $(python3.11 --version)"
+# Check Python (only needed to rebuild the bundled backend; the app is self-contained)
+if command -v python3.12 &> /dev/null; then
+    echo "✓ python3.12: $(python3.12 --version)"
 else
-    echo "✗ python3.11: NOT FOUND"
+    echo "✗ python3.12: NOT FOUND (only needed for local rebuilds; not required to run the app)"
 fi
 
 echo ""

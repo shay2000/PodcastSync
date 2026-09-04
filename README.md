@@ -41,7 +41,7 @@ The packaged DMG bundles the Python backend, `yt-dlp`, `ffmpeg`, and `ffprobe`, 
 
 ```bash
 git clone <repo-url>
-cd "Youtube Podcast Sync"
+cd PodcastSync
 
 # Set up Python environment
 python3 -m venv venv

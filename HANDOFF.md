@@ -61,7 +61,7 @@ Recent work completed:
 
 ## Run locally
 ```bash
-cd "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync"
+cd "<repo root, e.g. ~/Documents/Side Projects:Hobbies/Coding/PodcastSync>"
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -88,7 +88,7 @@ replaces the YouTube fetcher and download manager after application startup.
 
 ## Build packaged app
 ```bash
-cd "/Users/shayprasad/Documents/Coding/Youtube Podcast Sync"
+cd "<repo root>"
 source venv/bin/activate
 pip install -r requirements.txt
 brew install ffmpeg
