@@ -5,6 +5,8 @@
 **Scope:** Fix product bugs (feed/client compatibility, backend data-safety, security, UI), add auto-update, and sanitise the repo for a public release.
 **Produced by:** six parallel research agents auditing the codebase (feed spec/client research, frontend audit, backend robustness, security & git-history hygiene, packaging/CI, test strategy), followed by targeted verification (tags, branches, LICENSE, git history, `backend/scheduler.py`, `backend/rss_generator.py`, `backend/routes/feeds.py`).
 
+> **IMPLEMENTATION:** For the code-level, handoff-ready engineering spec that expands this plan into per-task changes, exact recipes, and tests, read **`docs/IMPLEMENTATION_SPEC.md`** (plus the files under `docs/implementation/`). This file is the strategy overview; the spec is what an implementing agent executes.
+
 > Repo note: the on-disk parent folder was renamed from `Side Projects:Hobbies` to `Side Projects and Hobbies` mid-session. Current repo root is `/Users/shayprasad/Documents/Side Projects and Hobbies/Coding/PodcastSync`. `AGENTS.md` (repo root) is the agent-facing companion to this plan.
 
 ---
